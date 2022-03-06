@@ -3,11 +3,13 @@
 #include <thread>
 #include <chrono>
 #include "accelerometer.h"
+#include "vibrationSensor.h"
 
 int main() 
 {
 	std::cout << "Earthquake Detection Cluster" << std::endl;
 	std::cout << "============================" << std::endl;
+	/*
 	Accelerometer* inst = Accelerometer::GetInstance();
 
 	Vector v = inst->readAcceleration();
@@ -25,6 +27,11 @@ int main()
 	v = inst->readAcceleration();
 	std::cout << "<" << v.x << ", " << v.y << ", " << v.z << ">" << std::endl;
 	Accelerometer::DestroyInstance();
+	*/
+	VibrationSensor* inst = VibrationSensor::GetInstance();
+	inst->readVibration();
+
+	VibrationSensor::DestroyInstance();
 
 	return 0;
 }
