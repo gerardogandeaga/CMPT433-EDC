@@ -13,7 +13,7 @@ CXX = arm-linux-gnueabihf-g++
 CFLAGS = -Wall -g -std=c++14 -Werror -I$(IDIR) -MMD -MP
 # library linking
 LDFLAGS := -L../lib
-LDLIBS := -lm
+LDLIBS := -lm -lpthread
 
 # dependecies and obj names
 # creates the actual paths the header and obj files are actually mapped to
@@ -31,7 +31,7 @@ $(TARGET): $(OBJ)
 	mv $(TARGET) $(BDIR)/
 
 $(ODIR)/%.o: $(SDIR)/%.cpp
-	$(CXX)  $(CFLAGS) -o $@ -c $<
+	$(CXX) -o $@ -c $< $(CFLAGS)
 
 tmp:
 	mkdir -p $(BDIR) ${ODIR}

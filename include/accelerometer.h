@@ -17,9 +17,22 @@ Edits:
 #define _ACCELEROMETER_H_
 
 #include <mutex>
+#include <thread>
 
-class Accelerometer {
+struct Vector {
+	double x;
+	double y;
+	double z;
 
+	Vector();
+	Vector(double x, double y, double z);
+	Vector(const Vector &other);
+
+	inline double magnitude();
+};
+
+class Accelerometer 
+{
 public:
 	// delete these functions to enforce singleton behaviour
 	Accelerometer(Accelerometer &other) = delete;
@@ -29,22 +42,43 @@ public:
 	static Accelerometer *GetInstance(void);
 	static void DestroyInstance(void); // Our manual destructor, should be explicitly called for cleanup!
 
-	// TODO: write x,y,z values to variables
-	void readAcceleration(void);
+	// creates and returns an averaged acceleration vector
+	Vector readAcceleration(void);
 
 private:
 	// singleton statics
 	static Accelerometer *instance;
 	static std::mutex mtx;
 
+	// thread handler
+	bool active;
+	std::thread workerThread;
+
 	// i2c file descriptor for the accelerometer
 	int i2cFd;
 	// output buffer that is used to write to i2c registers
 	unsigned char i2cWriteBuff[2];
 
+	// Vector buffer
+	// TODO: is this buffer system worth it? check if we can avoid it
+	Vector *movementSamples;
+	int sampleLocation;
+	int sampleSize;
+	std::mutex samplesMtx;
+
+	void writeToI2CReg(unsigned char reg, unsigned char val);
+	void sampleAcceleration(void);
+	double accSample2Value(short lsb, short msb);
+
 protected:
+	/*
+	Sets up the I2C device to read accelerometer input */
 	Accelerometer();
 	~Accelerometer();
+
+	// threading
+	bool stopWorker;
+	void worker();
 };
 
 #endif
