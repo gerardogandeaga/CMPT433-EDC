@@ -23,9 +23,9 @@
 #define ACC_OFF 0x00
 #define ACC_G 2
 #define ACC_MG 1024
+#define ACC_SMOOTHING_WEIGHT 0.1
 // Data
 #define SAMPLE_RATE 10000000 // 10ms
-#define MAX_SAMPLE_SIZE 300
 
 Accelerometer *Accelerometer::instance{nullptr};
 std::mutex Accelerometer::mtx;
@@ -42,9 +42,21 @@ Vector::Vector(const Vector &other)
 	z = other.z;
 }
 
-inline double Vector::magnitude() 
+Vector::Vector(const Vector *other) 
+{
+	x = other->x;
+	y = other->y;
+	z = other->z;
+}
+
+double Vector::magnitude() 
 {
 	return sqrt(x*x + y*y + z*z);
+}
+
+Vector Vector::diff(Vector &other)
+{
+	return Vector(x - other.x, y - other.y, z - other.z);
 }
 
 // ==================== Accelerometer Functions ===================
@@ -74,15 +86,14 @@ Accelerometer::Accelerometer()
 	writeToI2CReg(ACC_CONFIG_REG, 0x00);
 
 	// create the Vector buffer
-	movementSamples = new Vector[MAX_SAMPLE_SIZE];
-	sampleLocation = 0;
-	sampleSize = 0;
+	smoothedAccVector = new Vector(); 
+	readRawAcceleration(&smoothedAccVector->x, &smoothedAccVector->y, &smoothedAccVector->z);
 
 	// launch the worker thread
 	stopWorker = false;
 	workerThread = std::thread(&Accelerometer::worker, this);
 }
-
+ 
 Accelerometer::~Accelerometer() 
 {
 	// wait for the thread to end
@@ -90,7 +101,7 @@ Accelerometer::~Accelerometer()
 	workerThread.join();
 
 	close(i2cFd);
-	delete[] movementSamples;
+	delete smoothedAccVector;
 }
 
 void Accelerometer::worker() 
@@ -112,10 +123,8 @@ void Accelerometer::writeToI2CReg(unsigned char reg, unsigned char val)
 	}
 }
 
-void Accelerometer::sampleAcceleration(void) 
+void Accelerometer::readRawAcceleration(double *x, double *y, double *z)
 {
-	std::lock_guard<std::mutex> lock(samplesMtx);
-
 	char reg[1] = {0x00};
 	write(i2cFd, reg, 1);
 	char data[7] = {0};
@@ -124,18 +133,29 @@ void Accelerometer::sampleAcceleration(void)
 		std::cerr << "Could not read 7bytes of acceleration data!" << std::endl;
 	}
 	else {
-		// get data samples
-		double xAcc = accSample2Value(data[2], data[1]);
-		double yAcc = accSample2Value(data[4], data[3]);
-		double zAcc = accSample2Value(data[6], data[5]);
+		std::lock_guard<std::mutex> lock(valueMtx);
 
-		// add new vector sample to list
-		movementSamples[sampleLocation] = Vector(xAcc, yAcc, zAcc);
-		sampleLocation = (sampleLocation + 1) % MAX_SAMPLE_SIZE;
-		
-		if (sampleSize < MAX_SAMPLE_SIZE)
-			sampleSize++;
+		// get data samples
+		*x = accSample2Value(data[2], data[1]);
+		*y = accSample2Value(data[4], data[3]);
+		*z = accSample2Value(data[6], data[5]);
 	}
+}
+
+void Accelerometer::sampleAcceleration(void) 
+{
+	double xAcc, yAcc, zAcc;
+	readRawAcceleration(&xAcc, &yAcc, &zAcc);
+
+	// exponential smoothing lambda
+	static auto expSmooth = [](double val, double avg) -> double {
+		return ACC_SMOOTHING_WEIGHT * val + (1.0 - ACC_SMOOTHING_WEIGHT) * avg;
+	};
+
+	// update the smoothed acceleration vector
+	smoothedAccVector->x = expSmooth(xAcc, smoothedAccVector->x);
+	smoothedAccVector->y = expSmooth(yAcc, smoothedAccVector->y);
+	smoothedAccVector->z = expSmooth(zAcc, smoothedAccVector->z);
 }
 
 double Accelerometer::accSample2Value(short lsb, short msb)
@@ -147,26 +167,11 @@ double Accelerometer::accSample2Value(short lsb, short msb)
 	return (double)val / 1024;
 }
 
-Vector Accelerometer::readAcceleration(void)
+Vector Accelerometer::getAcceleration(void)
 {
-	// copy vector to a new buffer
-	// Vector samplesCopy = new Vector[MAX_SAMPLE_SIZE];
-	// int location, size;
-	
-	// { 
-	// 	// use a new scope for the gaurd_lock
-	// 	std::lock_guard<std::mutex> lock(samplesMtx);
-
-	// 	for (int i = 0; i < MAX_SAMPLE_SIZE; i++) {
-	// 		samplesCopy[i] = Vector(movementSamples);
-	// 	}
-	// 	location = sampleLocation;
-	// 	size = sampleSize;
-	// }
-
-	// process the samples and spit out an averaged accelerat
-
-	return movementSamples[0];
+	std::lock_guard<std::mutex> lock(valueMtx);
+	// return a copy of the smoothed vector
+	return Vector(smoothedAccVector);
 }
 
 Accelerometer *Accelerometer::GetInstance() 
