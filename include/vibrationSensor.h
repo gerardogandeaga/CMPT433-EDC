@@ -5,6 +5,9 @@ Code pretty much copied from Acccelerometer. Update as needed.
 #define _VIBRATIONSENSOR_H_
 
 #include <mutex>
+#include <thread>
+
+#define PULSE_BUFFER_SIZE 10
 
 class VibrationSensor {
 
@@ -17,19 +20,32 @@ public:
 	static VibrationSensor *GetInstance(void);
 	static void DestroyInstance(void); // Our manual destructor, should be explicitly called for cleanup!
 
-	// TODO: currently checks for vibrations for 10 secs, printing 0 or 1 depending on if a vibration is detected.
-    // Can try measuring the "length" of a vibration by counting the time it takes for vibration to end.
-	void readVibration(void);
+	// Returns latest pulse value
+	int getPulse(void);
+
 private:
     // singleton statics
 	static VibrationSensor *instance;
 	static std::mutex mtx;
 
-    const std::string VIBRATION_IN;
+	// thread handler
+	bool active;
+	std::thread workerThread;
+
+	int zeroCount;
+	int pulse;
+
+	// Reads digital value of vibration detection and updates pulse
+	void readVibration(void);
 
 protected:
     VibrationSensor();
     ~VibrationSensor();
+
+	// Threading
+	bool stopWorker;
+	void worker();
+
 };
 
 #endif
