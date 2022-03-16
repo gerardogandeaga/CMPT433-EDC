@@ -19,11 +19,12 @@
 #define E_GPIO_NUMBER  68
 
 #define NUM_PINS 10
-#define NUM_RAM_PINS 7
+#define NUM_DATABUS_PINS 8
 
 LCDScreen *LCDScreen::instance = nullptr;
 
-LCDScreen::LCDScreen() {
+LCDScreen::LCDScreen()
+{
 	SetUpPinToGPIOMapping();
 
 	// First, export the necessary GPIO pins.
@@ -35,23 +36,29 @@ LCDScreen::LCDScreen() {
 	std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
 	// For each RAM pin, set direction to `out`.
-	for (int i = 0; i < NUM_RAM_PINS; i++) {
-		std::map<PinSymbol, int>::iterator it = pin_map.find((PinSymbol)i);
-		if (it != pin_map.end()) {
-			gpio_utilities::WriteToGPIODirectionFile(it->second,
-			                                         gpio_utilities::PinDirection::OUT);
-		}
+	for (int i = 0; i < NUM_DATABUS_PINS; ++i) {
+		int gpio_number = pin_map.find((PinSymbol)i)->second;
+		gpio_utilities::WriteToGPIODirectionFile(gpio_number,
+			                                     gpio_utilities::PinDirection::OUT);
 	}
 
 	SignalEnable();
 	SetWriteMode();
+	// Set all databus pins to high.
+	for (int i = 0; i < NUM_DATABUS_PINS; ++i) {
+		int gpio_number = pin_map.find((PinSymbol)i)->second;
+		gpio_utilities::WriteToGPIOValueFile(gpio_number, gpio_utilities::PinValue::HIGH);
+	}
+	PrintDatabusContents();
 }
 
-LCDScreen::~LCDScreen() {
+LCDScreen::~LCDScreen()
+{
 
 }
 
-void LCDScreen::SetUpPinToGPIOMapping() {
+void LCDScreen::SetUpPinToGPIOMapping()
+{
 	// Create a mapping from pin symbols to GPIO pins.
 	int gpio_pins[NUM_PINS] = {
 		69,
@@ -66,14 +73,14 @@ void LCDScreen::SetUpPinToGPIOMapping() {
 		68
 	};
 
-	for (int i = 0; i < NUM_PINS; i++) {
+	for (int i = 0; i < NUM_PINS; ++i) {
 		pin_map.insert(std::pair<PinSymbol, int>((PinSymbol)i, gpio_pins[i]));
 	}
 }
 
-void LCDScreen::SetWriteMode() {
+void LCDScreen::SetWriteMode()
+{
 	int RS_gpio_number = pin_map.find(RS)->second;
-	std::cout << RS_gpio_number << std::endl;
 	if (!gpio_utilities::WriteToGPIOValueFile(RS_gpio_number,
 		                                      gpio_utilities::PinValue::HIGH))
 	{
@@ -82,9 +89,9 @@ void LCDScreen::SetWriteMode() {
 	}
 }
 
-void LCDScreen::SignalEnable() {
+void LCDScreen::SignalEnable()
+{
 	int E_gpio_number = pin_map.find(E)->second;
-	std::cout << E_gpio_number << std::endl;
 	if (!gpio_utilities::WriteToGPIOValueFile(E_gpio_number,
 		                                      gpio_utilities::PinValue::HIGH))
 	{
@@ -93,6 +100,23 @@ void LCDScreen::SignalEnable() {
 	}
 }
 
-void PrintDatabusContents() {
-	
+void LCDScreen::PrintDatabusContents()
+{
+	std::string result = "Databus contents...\n";
+	for (int i = 0; i < NUM_DATABUS_PINS; ++i) {
+		result += "D";
+		result += std::to_string(i);
+		result += ": ";
+
+		// Get GPIO number.
+		int gpio_number = pin_map.find((PinSymbol)i)->second;
+		// Get buffer of contents.
+		char *buffer = gpio_utilities::ReadFromGPIOValueFile(gpio_number);
+		if (buffer) {
+			result += std::string(buffer);
+			free(buffer);
+			buffer = nullptr;
+		}
+	}
+	std::cout << result;
 }

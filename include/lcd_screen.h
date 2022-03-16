@@ -56,13 +56,17 @@ private:
 
     void SetUpPinToGPIOMapping();
 
+    // Set RS pin to HIGH.
     void SetWriteMode();
 
+    // Set E pin to HIGH.
     void SignalEnable();
 
-    // Debugging.
+    // Prints the contents of the databus of the LCD screen.
     void PrintDatabusContents();
 
+    // PinSymbol - GPIO number mapping for easy reference to
+    // GPIO files.
     std::map<PinSymbol, int> pin_map;
 };
 
