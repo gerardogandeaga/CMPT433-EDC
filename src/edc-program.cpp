@@ -3,11 +3,13 @@
 #include <thread>
 #include <chrono>
 #include "accelerometer.h"
+#include "lcd_screen.h"
 
 int main() 
 {
 	std::cout << "Earthquake Detection Cluster" << std::endl;
 	std::cout << "============================" << std::endl;
+
 	Accelerometer* inst = Accelerometer::GetInstance();
 
 	Vector v = inst->readAcceleration();
