@@ -38,8 +38,8 @@ LCDScreen::LCDScreen()
 	// For each RAM pin, set direction to `out`.
 	for (int i = 0; i < NUM_DATABUS_PINS; ++i) {
 		int gpio_number = pin_map.find((PinSymbol)i)->second;
-		gpio_utilities::WriteToGPIODirectionFile(gpio_number,
-			                                     gpio_utilities::PinDirection::OUT);
+		gpio_utilities::WriteToGPIODirectionFile(gpio_number, 
+		                                         gpio_utilities::PinDirection::OUT);
 	}
 
 	SignalEnable();
@@ -47,7 +47,8 @@ LCDScreen::LCDScreen()
 	// Set all databus pins to high.
 	for (int i = 0; i < NUM_DATABUS_PINS; ++i) {
 		int gpio_number = pin_map.find((PinSymbol)i)->second;
-		gpio_utilities::WriteToGPIOValueFile(gpio_number, gpio_utilities::PinValue::HIGH);
+		gpio_utilities::WriteToGPIOValueFile(gpio_number,
+		                                     gpio_utilities::PinValue::HIGH);
 	}
 	PrintDatabusContents();
 }
@@ -61,16 +62,16 @@ void LCDScreen::SetUpPinToGPIOMapping()
 {
 	// Create a mapping from pin symbols to GPIO pins.
 	int gpio_pins[NUM_PINS] = {
-		69,
-		66,
-		112,
-		115,
-		117,
-		49,
-		48,
-		20,
-		67,
-		68
+		D0_GPIO_NUMBER,
+		D1_GPIO_NUMBER,
+		D2_GPIO_NUMBER,
+		D3_GPIO_NUMBER,
+		D4_GPIO_NUMBER,
+		D5_GPIO_NUMBER,
+		D6_GPIO_NUMBER,
+		D7_GPIO_NUMBER,
+		RS_GPIO_NUMBER,
+		E_GPIO_NUMBER
 	};
 
 	for (int i = 0; i < NUM_PINS; ++i) {
@@ -81,9 +82,8 @@ void LCDScreen::SetUpPinToGPIOMapping()
 void LCDScreen::SetWriteMode()
 {
 	int RS_gpio_number = pin_map.find(RS)->second;
-	if (!gpio_utilities::WriteToGPIOValueFile(RS_gpio_number,
-		                                      gpio_utilities::PinValue::HIGH))
-	{
+	if (!gpio_utilities::WriteToGPIOValueFile(RS_gpio_number, 
+	                                          gpio_utilities::PinValue::HIGH)) {
 		std::cerr << "Failed to set RS pin to HIGH ";
 		std::cerr << "in LCDScreen::SetWriteMode." << std::endl;
 	}
@@ -92,9 +92,8 @@ void LCDScreen::SetWriteMode()
 void LCDScreen::SignalEnable()
 {
 	int E_gpio_number = pin_map.find(E)->second;
-	if (!gpio_utilities::WriteToGPIOValueFile(E_gpio_number,
-		                                      gpio_utilities::PinValue::HIGH))
-	{
+	if (!gpio_utilities::WriteToGPIOValueFile(E_gpio_number, 
+	                                          gpio_utilities::PinValue::HIGH)) {
 		std::cerr << "Failed to set E pin to HIGH ";
 		std::cerr << "in LCDScreen::SignalEnable." << std::endl;
 	}

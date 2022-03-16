@@ -12,21 +12,21 @@ namespace gpio_utilities {
 bool ExportGPIOPin(int gpio_number)
 {
 	FILE *export_file = fopen(EXPORT_FILE_PATH, "w");
-    if (!export_file) {
-        std::cerr << "Unable to open " << EXPORT_FILE_PATH;
-        std::cerr << " in gpio_utilities::ExportGPIOPin." << std::endl;
-        return false;
-    }
+	if (!export_file) {
+		std::cerr << "Unable to open " << EXPORT_FILE_PATH;
+		std::cerr << " in gpio_utilities::ExportGPIOPin." << std::endl;
+		return false;
+	}
 
-    std::string gpio_number_str = std::to_string(gpio_number);
-    int bytes_written = fprintf(export_file, "%s", gpio_number_str.c_str());
-    if (bytes_written <= 0) {
-        perror("ERROR");
-        fclose(export_file);
-        return false;
-    }
+	std::string gpio_number_str = std::to_string(gpio_number);
+	int bytes_written = fprintf(export_file, "%s", gpio_number_str.c_str());
+	if (bytes_written <= 0) {
+		perror("ERROR");
+		fclose(export_file);
+		return false;
+	}
 
-    fclose(export_file);
+	fclose(export_file);
 	return true;
 }
 
@@ -93,25 +93,24 @@ char *ReadFromGPIOValueFile(int gpio_number) {
 
 	// Obtain GPIO value file.
 	std::string gpio_value_file_path = GetGPIODirectory(gpio_number) + "value";
-    FILE *gpio_value_file = fopen(gpio_value_file_path.c_str(), "r");
-    if (!gpio_value_file) {
-        std::cerr << "Unable to open " << gpio_value_file_path;
+	FILE *gpio_value_file = fopen(gpio_value_file_path.c_str(), "r");
+	if (!gpio_value_file) {
+		std::cerr << "Unable to open " << gpio_value_file_path;
 		std::cerr << " in gpio_utilities::ReadFromGPIOValueFile." << std::endl;
 		return nullptr;
-    }
+	}
 
-    // Read into buffer.
-    int bytes_read = getline(&buffer, &buffer_size, gpio_value_file);
-    fclose(gpio_value_file);
-    
-    if (bytes_read <= 0) {
-    	perror("ERROR");
-    	std::cerr << "Read <= 0 bytes ";
-    	std::cerr << "in gpio_utilities::ReadFromGPIOValueFile." << std::endl;
-    	return nullptr;
-    }
-    return buffer;
+	// Read into buffer.
+	int bytes_read = getline(&buffer, &buffer_size, gpio_value_file);
+	fclose(gpio_value_file);
 
+	if (bytes_read <= 0) {
+		perror("ERROR");
+		std::cerr << "Read <= 0 bytes ";
+		std::cerr << "in gpio_utilities::ReadFromGPIOValueFile." << std::endl;
+		return nullptr;
+	}
+	return buffer;
 }
 
 } // gpio_utilities
