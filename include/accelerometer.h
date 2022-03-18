@@ -27,8 +27,13 @@ struct Vector {
 	Vector();
 	Vector(double x, double y, double z);
 	Vector(const Vector &other);
+	Vector(const Vector *other);
 
-	inline double magnitude();
+	// magnitude of a vector
+	double magnitude();
+
+	// Returns the difference between two vectors
+	Vector diff(Vector &other);
 };
 
 class Accelerometer 
@@ -43,7 +48,7 @@ public:
 	static void DestroyInstance(void); // Our manual destructor, should be explicitly called for cleanup!
 
 	// creates and returns an averaged acceleration vector
-	Vector readAcceleration(void);
+	Vector getAcceleration(void);
 
 private:
 	// singleton statics
@@ -59,14 +64,12 @@ private:
 	// output buffer that is used to write to i2c registers
 	unsigned char i2cWriteBuff[2];
 
-	// Vector buffer
-	// TODO: is this buffer system worth it? check if we can avoid it
-	Vector *movementSamples;
-	int sampleLocation;
-	int sampleSize;
-	std::mutex samplesMtx;
+	// Exponentially smoothed vector
+	Vector *smoothedAccVector;
+	std::mutex valueMtx;
 
 	void writeToI2CReg(unsigned char reg, unsigned char val);
+	void readRawAcceleration(double *x, double *y, double *z);
 	void sampleAcceleration(void);
 	double accSample2Value(short lsb, short msb);
 

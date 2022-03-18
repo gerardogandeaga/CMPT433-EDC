@@ -4,29 +4,20 @@
 #include <chrono>
 #include "accelerometer.h"
 #include "lcd_screen.h"
+#include "vibrationSensor.h"
 
 int main() 
 {
 	std::cout << "Earthquake Detection Cluster" << std::endl;
 	std::cout << "============================" << std::endl;
 
-	Accelerometer* inst = Accelerometer::GetInstance();
+	VibrationSensor* inst = VibrationSensor::GetInstance();
 
-	Vector v = inst->readAcceleration();
-	std::cout << "<" << v.x << ", " << v.y << ", " << v.z << ">" << std::endl;
-	std::this_thread::sleep_for(std::chrono::nanoseconds(1000000000));
-	v = inst->readAcceleration();
-	std::cout << "<" << v.x << ", " << v.y << ", " << v.z << ">" << std::endl;
-	std::this_thread::sleep_for(std::chrono::nanoseconds(1000000000));
-	v = inst->readAcceleration();
-	std::cout << "<" << v.x << ", " << v.y << ", " << v.z << ">" << std::endl;
-	std::this_thread::sleep_for(std::chrono::nanoseconds(1000000000));
-	v = inst->readAcceleration();
-	std::cout << "<" << v.x << ", " << v.y << ", " << v.z << ">" << std::endl;
-	std::this_thread::sleep_for(std::chrono::nanoseconds(1000000000));
-	v = inst->readAcceleration();
-	std::cout << "<" << v.x << ", " << v.y << ", " << v.z << ">" << std::endl;
-	Accelerometer::DestroyInstance();
+	while(1) {
+		std::cout << "Pulse: " << inst->getPulse() << std::endl;
+	}
+
+	VibrationSensor::DestroyInstance();
 
 	return 0;
 }
