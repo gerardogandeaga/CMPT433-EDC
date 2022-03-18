@@ -3,6 +3,7 @@
 #include <thread>
 #include <chrono>
 #include "accelerometer.h"
+#include "lcd_screen.h"
 #include "vibrationSensor.h"
 
 int main() 
@@ -17,7 +18,6 @@ int main()
 	}
 
 	VibrationSensor::DestroyInstance();
-
 
 	return 0;
 }
