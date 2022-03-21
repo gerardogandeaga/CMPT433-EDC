@@ -65,7 +65,7 @@ bool WriteToGPIODirectionFile(int gpio_number, PinDirection direction) {
 	FILE *gpio_direction_file = fopen(gpio_direction_file_path.c_str(), "w");
 	if (!gpio_direction_file) {
 		std::cerr << "Unable to open " << gpio_direction_file_path;
-		std::cerr << " in gpio_utilities::WriteToGPIOValueFile." << std::endl;
+		std::cerr << " in gpio_utilities::WriteToGPIODirectionFile." << std::endl;
 		return false;
 	}
 
