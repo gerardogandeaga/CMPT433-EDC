@@ -3,6 +3,7 @@
 
 #include <map>
 #include <string>
+#include "gpio_utilities.h"
 
 /*
  * Interface for the Adafruit Standard 16x2 LCD screen on the
@@ -39,10 +40,6 @@ public:
 
 private:
     enum PinSymbol {
-        D0,    /* 0 */
-        D1,    /* 1 */
-        D2,    /* 2 */
-        D3,    /* 3 */
         D4,    /* 4 */
         D5,    /* 5 */
         D6,    /* 6 */
@@ -64,6 +61,12 @@ private:
 
     // Prints the contents of the databus of the LCD screen.
     void PrintDatabusContents();
+
+    void PinWrite(PinSymbol pin, int pinVal);
+
+    void Write4Bits(uint8_t value);
+
+    void PulseEnable();
 
     // PinSymbol - GPIO number mapping for easy reference to
     // GPIO files.
