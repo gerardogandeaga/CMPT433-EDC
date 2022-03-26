@@ -38,6 +38,12 @@ public:
 	LCDScreen(LCDScreen const &) = delete;
 	void operator=(LCDScreen const &) = delete;
 
+    // Write a full string to the LCD.
+    void WriteMessage(std::string str);
+
+    // Clear the LCD display.
+    void ClearDisplay();
+
 private:
     enum PinSymbol {
         D4,    /* 4 */
@@ -53,20 +59,24 @@ private:
 
     void SetUpPinToGPIOMapping();
 
-    // Set RS pin to HIGH.
-    void SetWriteMode();
-
-    // Set E pin to HIGH.
-    void SignalEnable();
-
-    // Prints the contents of the databus of the LCD screen.
-    void PrintDatabusContents();
-
+    // Set a pin to HIGH or LOW.
     void PinWrite(PinSymbol pin, int pinVal);
 
+    // Set RS pin to HIGH (write data) or LOW (write instruction).
+    void SetWriteMode(gpio_utilities::PinValue pinVal);
+
+    // Set E pin to HIGH or LOW.
+    void SetEnable(gpio_utilities::PinValue pinVal);
+
+    // Derived from Arduino LiquidCrystal library
+    // Write 4 bits to D4, D5, D6, D7 and pulse the LCD to read these values
     void Write4Bits(uint8_t value);
 
+    // Tell the LCD board to read the databus by flashing the 'E' pin from high to low.
     void PulseEnable();
+
+    // Write a single character to the LCD.
+    void WriteChar(char c);
 
     // PinSymbol - GPIO number mapping for easy reference to
     // GPIO files.

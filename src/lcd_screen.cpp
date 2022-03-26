@@ -20,6 +20,8 @@ LCDScreen *LCDScreen::instance = nullptr;
 
 LCDScreen::LCDScreen()
 {
+	std::cout << "Initializing LCD..." << std::endl;
+
 	SetUpPinToGPIOMapping();
 
 	// First, export the necessary GPIO pins.
@@ -43,78 +45,61 @@ LCDScreen::LCDScreen()
 	PinWrite(D6, gpio_utilities::PinValue::LOW);
 	PinWrite(D7, gpio_utilities::PinValue::LOW);
 
-	// Pull RS and EN low
-	PinWrite(RS, gpio_utilities::PinValue::LOW);
-	PinWrite(E, gpio_utilities::PinValue::LOW);
-
-	//Write4Bits(0x00);
-	//Write4Bits(0x01);
+	// Pull RS and E low
+	SetWriteMode(gpio_utilities::PinValue::LOW);
+	SetEnable(gpio_utilities::PinValue::LOW);
 
 	//== Initialization by Instruction ==//
-	// Special Function set 1
+	// Special Function Set 1
 	Write4Bits(0x03);
-	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	std::this_thread::sleep_for(std::chrono::milliseconds(5));
 	
-	// Special Function set 2
+	// Special Function Set 2
 	Write4Bits(0x03);
-	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-	// Special Function set 3
+	// Special Function Set 3
 	Write4Bits(0x03);
-	std::this_thread::sleep_for(std::chrono::microseconds(200));
+	std::this_thread::sleep_for(std::chrono::microseconds(150));
 
-	// Function set to change interface
+	// Initial Function Set to change interface
 	Write4Bits(0x02);
-	std::this_thread::sleep_for(std::chrono::microseconds(200));
+	std::this_thread::sleep_for(std::chrono::microseconds(150));
 
-	// Function set (0010NF**) = (00101000)
-	Write4Bits(0x02);
+	// Function Set (0010NF**)
+	Write4Bits(0x02); // (0010)
 	Write4Bits(0x08); // (1000)
-	std::this_thread::sleep_for(std::chrono::microseconds(200));
+	std::this_thread::sleep_for(std::chrono::microseconds(100));
 
-	// Display ON/OFF
-	Write4Bits(0x00);
-	Write4Bits(0x08);
-	std::this_thread::sleep_for(std::chrono::microseconds(200));
+	// Display ON/OFF Control 
+	// (DO NOT CONFIGURE DCB HERE)
+	Write4Bits(0x00); // (0000)
+	Write4Bits(0x08); // (1000)
+	std::this_thread::sleep_for(std::chrono::microseconds(100));
 
-	// Clear display
+	// Clear Display
 	Write4Bits(0x00);
 	Write4Bits(0x01);
 	std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-	// Entry mode set
-	Write4Bits(0x00);
-	Write4Bits(0x06);
-	std::this_thread::sleep_for(std::chrono::microseconds(200));
+	// Entry Mode Set
+	Write4Bits(0x00); // (0000)
+	Write4Bits(0x06); // (0110)
+	std::this_thread::sleep_for(std::chrono::microseconds(100));
 	//== Initialization Done ==//
 
+	// Display ON/OFF Control
+	Write4Bits(0x00); // (0000)
+	Write4Bits(0x0D); // (1100)
+	std::this_thread::sleep_for(std::chrono::microseconds(100));
 
-	// Display ON/OFF with blinking cursor
-	Write4Bits(0x00);
-	Write4Bits(0x0F);
-	std::this_thread::sleep_for(std::chrono::microseconds(200));
-
-	// Clear display
+	// Clear Display
 	Write4Bits(0x00);
 	Write4Bits(0x01);
 	std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-	/*
-	// Return home
-	Write4Bits(0x00);
-	Write4Bits(0x02);
-	std::this_thread::sleep_for(std::chrono::milliseconds(5));
-	*/
-
 	// Pull RS up to write data
-	PinWrite(RS, gpio_utilities::PinValue::HIGH);
-
-	// Write Data
-	Write4Bits(0x04);
-	Write4Bits(0x08);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-	std::cout << "Done!" << std::endl;
+	SetWriteMode(gpio_utilities::PinValue::HIGH);
 }
 
 LCDScreen::~LCDScreen()
@@ -122,65 +107,62 @@ LCDScreen::~LCDScreen()
 
 }
 
+
 void LCDScreen::SetUpPinToGPIOMapping()
 {
 	// Create a mapping from pin symbols to GPIO pins.
-	int gpio_pins[NUM_PINS] = {
-		D4_GPIO_NUMBER,
-		D5_GPIO_NUMBER,
-		D6_GPIO_NUMBER,
-		D7_GPIO_NUMBER,
-		RS_GPIO_NUMBER,
-		E_GPIO_NUMBER
-	};
-
-	for (int i = 0; i < NUM_PINS; ++i) {
-		pin_map.insert(std::pair<PinSymbol, int>((PinSymbol)i, gpio_pins[i]));
-	}
+	pin_map.insert(std::pair<PinSymbol, int>(D4, D4_GPIO_NUMBER));
+	pin_map.insert(std::pair<PinSymbol, int>(D5, D5_GPIO_NUMBER));
+	pin_map.insert(std::pair<PinSymbol, int>(D6, D6_GPIO_NUMBER));
+	pin_map.insert(std::pair<PinSymbol, int>(D7, D7_GPIO_NUMBER));
+	pin_map.insert(std::pair<PinSymbol, int>(RS, RS_GPIO_NUMBER));
+	pin_map.insert(std::pair<PinSymbol, int>(E, E_GPIO_NUMBER));
 }
 
-void LCDScreen::SetWriteMode()
+void LCDScreen::SetWriteMode(gpio_utilities::PinValue pinVal)
 {
 	int RS_gpio_number = pin_map.find(RS)->second;
-	if (!gpio_utilities::WriteToGPIOValueFile(RS_gpio_number, 
-	                                          gpio_utilities::PinValue::HIGH)) {
+	if (!gpio_utilities::WriteToGPIOValueFile(RS_gpio_number, pinVal)) {
 		std::cerr << "Failed to set RS pin to HIGH ";
 		std::cerr << "in LCDScreen::SetWriteMode." << std::endl;
 	}
 }
 
-void LCDScreen::SignalEnable()
+void LCDScreen::SetEnable(gpio_utilities::PinValue pinVal)
 {
 	int E_gpio_number = pin_map.find(E)->second;
-	if (!gpio_utilities::WriteToGPIOValueFile(E_gpio_number, 
-	                                          gpio_utilities::PinValue::HIGH)) {
+	if (!gpio_utilities::WriteToGPIOValueFile(E_gpio_number, pinVal)) {
 		std::cerr << "Failed to set E pin to HIGH ";
 		std::cerr << "in LCDScreen::SignalEnable." << std::endl;
 	}
 }
 
-void LCDScreen::PinWrite(PinSymbol pin, int pinVal)
+void LCDScreen::ClearDisplay()
 {
-	int gpio_number = pin_map.find(pin)->second;
-	//std::cout << "Writing " << pinVal << " to " << gpio_number << std::endl;
-	if (!gpio_utilities::WriteToGPIOValueFile(gpio_number, (gpio_utilities::PinValue) pinVal)) {
-		std::cerr << "Failed to set gpio " << gpio_number << " to " << pinVal;
-		std::cerr << "in LCDScreen::PinWrite." << std::endl;
+	SetWriteMode(gpio_utilities::PinValue::LOW);
+	// Clear Display
+	Write4Bits(0x00);
+	Write4Bits(0x01);
+	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	SetWriteMode(gpio_utilities::PinValue::HIGH);
+}
+
+
+void LCDScreen::WriteMessage(std::string str)
+{
+	for (std::string::iterator it=str.begin(); it != str.end(); ++it) {
+		WriteChar(*it);
 	}
 }
 
-// Derived from Arduino LiquidCrystal library
-void LCDScreen::PulseEnable()
+void LCDScreen::WriteChar(char c)
 {
-	PinWrite(E, gpio_utilities::PinValue::LOW);
-	std::this_thread::sleep_for(std::chrono::microseconds(200));
-	PinWrite(E, gpio_utilities::PinValue::HIGH);
-	std::this_thread::sleep_for(std::chrono::microseconds(1000));
-	PinWrite(E, gpio_utilities::PinValue::LOW);
-	std::this_thread::sleep_for(std::chrono::microseconds(200));
+	unsigned int upperBits = (c >> 4) & 0xF;
+	unsigned int lowerBits = c & 0xF;
+	Write4Bits(upperBits);
+	Write4Bits(lowerBits);
 }
 
-// Derived from Arduino LiquidCrystal library
 void LCDScreen::Write4Bits(uint8_t value)
 {
 	for (int i = 0; i < NUM_DATABUS_PINS; ++i) {
@@ -189,25 +171,20 @@ void LCDScreen::Write4Bits(uint8_t value)
 	PulseEnable();
 }
 
-void LCDScreen::PrintDatabusContents()
+void LCDScreen::PulseEnable()
 {
-	std::string result = "Pins initialized.\n";
-	result += "Databus contents...\n";
-	for (int i = 0; i < NUM_DATABUS_PINS; ++i) {
-		result += "D";
-		result += std::to_string(i+4);
-		result += ": ";
+	SetEnable(gpio_utilities::PinValue::HIGH);
+	std::this_thread::sleep_for(std::chrono::microseconds(1000));
+	SetEnable(gpio_utilities::PinValue::LOW);
+	std::this_thread::sleep_for(std::chrono::microseconds(400));
+}
 
-		// Get GPIO number.
-		int gpio_number = pin_map.find((PinSymbol)i)->second;
-		// Get buffer of contents.
-		char *buffer = gpio_utilities::ReadFromGPIOValueFile(gpio_number);
-		if (buffer) {
-			result += std::string(buffer);
-			free(buffer);
-			buffer = nullptr;
-		}
+
+void LCDScreen::PinWrite(PinSymbol pin, int pinVal)
+{
+	int gpio_number = pin_map.find(pin)->second;
+	if (!gpio_utilities::WriteToGPIOValueFile(gpio_number, (gpio_utilities::PinValue) pinVal)) {
+		std::cerr << "Failed to set gpio " << gpio_number << " to " << pinVal;
+		std::cerr << "in LCDScreen::PinWrite." << std::endl;
 	}
-	result += "Now ready to initialize for commands.\n";
-	std::cout << result;
 }

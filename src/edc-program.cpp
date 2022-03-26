@@ -39,6 +39,18 @@ int main()
 
 	// VibrationSensor::DestroyInstance();
 
+	LCDScreen *LCD = LCDScreen::Get();
+
+	std::string str = "Hello World!";
+
+	while (1) {
+		std::cout << "Displaying message \"" << str << "\" to LCD..." << std::endl;
+		LCD->ClearDisplay();
+		LCD->WriteMessage(str);
+		std::cout << "Write a message to LCD: " << std::endl;
+		std::getline(std::cin >> std::ws, str);
+	}
+
 	return 0;
 }
 
