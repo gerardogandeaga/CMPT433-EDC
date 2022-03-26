@@ -3,6 +3,7 @@
 #include <thread>
 #include <chrono>
 
+#include "i2c_utilities.h"
 #include "accelerometer.h"
 #include "lcd_screen.h"
 #include "vibrationSensor.h"
@@ -28,12 +29,15 @@ int main()
 	std::cout << "Earthquake Detection Cluster" << std::endl;
 	std::cout << "============================" << std::endl;
 
-	// init the 
-	Node::GetInstance();
+	// initialize i2c
+	i2c_utilities::initI2c();
+
+	// init the node
+	Node::Initialize();
 
 	while (1);
 
-	Node::DestroyInstance();
+	Node::End();
 
 	//lcd_test();
 

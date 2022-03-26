@@ -8,6 +8,7 @@
 
 #include "accelerometer.h"
 #include "vibrationSensor.h"
+#include "segDisplay.h"
 #include "node.h"
 
 #define TAG "NODE: "
@@ -33,10 +34,11 @@ std::mutex Node::mtx;
 
 Node::Node() 
 {
-	// init the acceleromter
+	// init the modules ===============
 	Accelerometer::GetInstance();
-	// init the acceleromter
 	VibrationSensor::GetInstance();
+	SegDisplay::GetInstance();
+	// ================================
 
 	isNodeMaster = false;
 	numberOfConnectedNodes = 0;
@@ -54,6 +56,12 @@ Node::~Node()
 	// wait for the thread to end
 	stopWorker = true;
 	workerThread.join();
+
+	// end the modules ===============
+	Accelerometer::DestroyInstance();
+	VibrationSensor::DestroyInstance();
+	SegDisplay::DestroyInstance();
+	// ================================
 }
 
 void Node::worker() 
@@ -79,6 +87,7 @@ void Node::worker()
 			<< ", consensus = " << consensusQuakeMagnitude 
 			<< ", # connected nodes = " << numberOfConnectedNodes
 			<< std::endl;
+
 		std::this_thread::sleep_for(std::chrono::nanoseconds(SAMPLE_RATE));
 	}
 }
@@ -193,7 +202,7 @@ void Node::setConsensusQuakeMagnitude(int magnitude)
 	}
 }
 
-Node *Node::GetInstance() 
+Node *Node::Initialize() 
 {
 	std::lock_guard<std::mutex> lock(mtx);
 
@@ -203,7 +212,17 @@ Node *Node::GetInstance()
 	return instance;
 }
 
-void Node::DestroyInstance(void) 
+Node *Node::GetInstanceIfExits() 
+{
+	std::lock_guard<std::mutex> lock(mtx);
+
+	if (instance == nullptr)
+		return nullptr;
+	else
+		return instance;
+}
+
+void Node::End(void) 
 {
 	std::lock_guard<std::mutex> lock(mtx);
 	delete instance;
