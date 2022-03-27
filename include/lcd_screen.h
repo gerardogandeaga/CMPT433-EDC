@@ -3,6 +3,7 @@
 
 #include <map>
 #include <string>
+#include "gpio_utilities.h"
 
 /*
  * Interface for the Adafruit Standard 16x2 LCD screen on the
@@ -37,12 +38,14 @@ public:
 	LCDScreen(LCDScreen const &) = delete;
 	void operator=(LCDScreen const &) = delete;
 
+    // Write a full string to the LCD.
+    void WriteMessage(std::string str);
+
+    // Clear the LCD display.
+    void ClearDisplay();
+
 private:
     enum PinSymbol {
-        D0,    /* 0 */
-        D1,    /* 1 */
-        D2,    /* 2 */
-        D3,    /* 3 */
         D4,    /* 4 */
         D5,    /* 5 */
         D6,    /* 6 */
@@ -56,14 +59,24 @@ private:
 
     void SetUpPinToGPIOMapping();
 
-    // Set RS pin to HIGH.
-    void SetWriteMode();
+    // Set a pin to HIGH or LOW.
+    void PinWrite(PinSymbol pin, int pinVal);
 
-    // Set E pin to HIGH.
-    void SignalEnable();
+    // Set RS pin to HIGH (write data) or LOW (write instruction).
+    void SetWriteMode(gpio_utilities::PinValue pinVal);
 
-    // Prints the contents of the databus of the LCD screen.
-    void PrintDatabusContents();
+    // Set E pin to HIGH or LOW.
+    void SetEnable(gpio_utilities::PinValue pinVal);
+
+    // Derived from Arduino LiquidCrystal library
+    // Write 4 bits to D4, D5, D6, D7 and pulse the LCD to read these values
+    void Write4Bits(uint8_t value);
+
+    // Tell the LCD board to read the databus by flashing the 'E' pin from high to low.
+    void PulseEnable();
+
+    // Write a single character to the LCD.
+    void WriteChar(char c);
 
     // PinSymbol - GPIO number mapping for easy reference to
     // GPIO files.
