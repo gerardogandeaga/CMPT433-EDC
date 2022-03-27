@@ -13,6 +13,7 @@
 #include <chrono>
 
 #include "accelerometer.h"
+#include "i2c_utilities.h"
 
 // Accelerometer
 #define LINUX_BUS_I2C_1 "/dev/i2c-1"
@@ -63,27 +64,12 @@ Vector Vector::diff(Vector &other)
 
 Accelerometer::Accelerometer() 
 {
-	// enable i2c on pins
-	system("config-pin P9_17 i2c");
-	system("config-pin P9_18 i2c");
-	
-	// enable device control
-	i2cFd = open(LINUX_BUS_I2C_1, O_RDWR);
-
-	if (i2cFd < 0) {
-		std::cerr << "Could not open " << LINUX_BUS_I2C_1 << "!" << std::endl;
-		exit(EXIT_FAILURE);
-	}
-
-	if (ioctl(i2cFd, I2C_SLAVE_FORCE, I2C_ACC_ADDR) < 0) {
-		std::cerr << "Unable to set I2C device to slave address\n";
-		exit(EXIT_FAILURE);
-	}
+	i2cFd = i2c_utilities::getI2cBus1DeviceControl(I2C_ACC_ADDR);
 
 	// activate the accelerometer
-	writeToI2CReg(ACC_ACTIVE_REG, ACC_OFF);
-	writeToI2CReg(ACC_ACTIVE_REG, ACC_ON);
-	writeToI2CReg(ACC_CONFIG_REG, 0x00);
+	i2c_utilities::writeToI2c(i2cFd, ACC_ACTIVE_REG, ACC_OFF);
+	i2c_utilities::writeToI2c(i2cFd, ACC_ACTIVE_REG, ACC_ON);
+	i2c_utilities::writeToI2c(i2cFd, ACC_CONFIG_REG, 0x00);
 
 	// create the Vector buffer
 	smoothedAccVector = new Vector(); 
@@ -100,7 +86,7 @@ Accelerometer::~Accelerometer()
 	stopWorker = true;
 	workerThread.join();
 
-	close(i2cFd);
+	i2c_utilities::endDeviceControl(i2cFd);
 	delete smoothedAccVector;
 }
 
@@ -110,16 +96,6 @@ void Accelerometer::worker()
 	while (!stopWorker) {
 		sampleAcceleration();
 		std::this_thread::sleep_for(std::chrono::nanoseconds(SAMPLE_RATE));
-	}
-}
-
-void Accelerometer::writeToI2CReg(unsigned char reg, unsigned char val) 
-{
-	i2cWriteBuff[0] = reg;
-	i2cWriteBuff[1] = val;
-	if (write(i2cFd, i2cWriteBuff, 2) != 2) {
-		std::cerr << "Unable to write to i2c register" << std::endl;
-		exit(EXIT_FAILURE);
 	}
 }
 

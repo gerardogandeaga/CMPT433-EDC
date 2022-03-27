@@ -61,14 +61,11 @@ private:
 
 	// i2c file descriptor for the accelerometer
 	int i2cFd;
-	// output buffer that is used to write to i2c registers
-	unsigned char i2cWriteBuff[2];
 
 	// Exponentially smoothed vector
 	Vector *smoothedAccVector;
 	std::mutex valueMtx;
 
-	void writeToI2CReg(unsigned char reg, unsigned char val);
 	void readRawAcceleration(double *x, double *y, double *z);
 	void sampleAcceleration(void);
 	double accSample2Value(short lsb, short msb);

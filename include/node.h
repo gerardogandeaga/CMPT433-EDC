@@ -17,8 +17,12 @@ public:
 	Node(Node &other) = delete;
 	void operator=(const Node &) = delete;
 	
-	static Node *GetInstance(void);
-	static void DestroyInstance(void); 
+	static Node *Initialize(void);
+	static void End(void); 
+	// returns an instance but does not initialize a new one if it doesnt exist.
+	// this prevents the re-instantiation of the Node class if it shut down but
+	// another module that hasnt shut down yet references it.
+	static Node *GetInstanceIfExits(void); // return nullptr if it doesnt exist. See -> segDisplay.cpp::displayLevel() for reference
 
 	bool isMaster(void);
 	void setNodeAsMaster(bool isMaster);
