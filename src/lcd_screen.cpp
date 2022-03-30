@@ -23,8 +23,6 @@ LCDScreen::LCDScreen()
 	std::cout << "Initializing LCD..." << std::endl;
 
 	SetUpPinToGPIOMapping();
-	cursor_position_row = 0;
-	cursor_position_col = 0;
 
 	// First, export the necessary GPIO pins.
 	for (const auto symbol_pin_pair : pin_map) {
@@ -112,22 +110,69 @@ LCDScreen::LCDScreen()
 
 	// Pull RS up to write data
 	SetWriteMode();
+
+	stop_worker = false;
+	worker_thread = std::thread(&LCDScreen::Worker, this);
 }
 
 LCDScreen::~LCDScreen()
 {
-
+	stop_worker = true;
+	worker_thread.join();
 }
 
-void LCDScreen::SetUpPinToGPIOMapping()
+void LCDScreen::Worker()
 {
-	// Create a mapping from pin symbols to GPIO pins.
-	pin_map.insert(std::pair<PinSymbol, int>(D4, D4_GPIO_NUMBER));
-	pin_map.insert(std::pair<PinSymbol, int>(D5, D5_GPIO_NUMBER));
-	pin_map.insert(std::pair<PinSymbol, int>(D6, D6_GPIO_NUMBER));
-	pin_map.insert(std::pair<PinSymbol, int>(D7, D7_GPIO_NUMBER));
-	pin_map.insert(std::pair<PinSymbol, int>(RS, RS_GPIO_NUMBER));
-	pin_map.insert(std::pair<PinSymbol, int>(E, E_GPIO_NUMBER));
+	while (!stop_worker) {
+		// First, clear the screen.
+		ClearDisplay();
+
+		// Output the top message.
+		OutputTopMessage();
+
+		// Output the bottom message.
+		OutputBottomMessage();
+
+		// Sleep for 200 ms.	
+		std::this_thread::sleep_for(std::chrono::milliseconds(200));
+	}
+}
+
+void LCDScreen::SetTopMessage(std::string message)
+{
+	// Lock messages for concurrency.
+	std::lock_guard<std::mutex> lock(lcd_mutex);
+	top_message = std::string(message);
+}
+
+void LCDScreen::OutputTopMessage() {
+	// Set cursor position to the start of the top line.
+	SetCursorPosition(0, 0);
+
+	// Lock messages for concurrency.
+	std::lock_guard<std::mutex> lock(lcd_mutex);
+	for (char ch : top_message) {
+		WriteChar(ch);
+	}
+}
+
+void LCDScreen::SetBottomMessage(std::string message)
+{
+	// Lock messages for concurrency.
+	std::lock_guard<std::mutex> lock(lcd_mutex);
+	bottom_message = std::string(message);
+}
+
+void LCDScreen::OutputBottomMessage()
+{
+	// Set cursor position to the start of the bottom line.
+	SetCursorPosition(1, 0);
+
+	// Lock messages for concurrency.
+	std::lock_guard<std::mutex> lock(lcd_mutex);
+	for (char ch : bottom_message) {
+		WriteChar(ch);
+	}
 }
 
 void LCDScreen::SetCommandMode()
@@ -142,9 +187,15 @@ void LCDScreen::SetWriteMode()
 	PinWrite(RS, gpio_utilities::PinValue::HIGH);
 }
 
-void LCDScreen::SetEnable(gpio_utilities::PinValue pin_value)
+void LCDScreen::SetUpPinToGPIOMapping()
 {
-	PinWrite(E, pin_value);
+	// Create a mapping from pin symbols to GPIO pins.
+	pin_map.insert(std::pair<PinSymbol, int>(D4, D4_GPIO_NUMBER));
+	pin_map.insert(std::pair<PinSymbol, int>(D5, D5_GPIO_NUMBER));
+	pin_map.insert(std::pair<PinSymbol, int>(D6, D6_GPIO_NUMBER));
+	pin_map.insert(std::pair<PinSymbol, int>(D7, D7_GPIO_NUMBER));
+	pin_map.insert(std::pair<PinSymbol, int>(RS, RS_GPIO_NUMBER));
+	pin_map.insert(std::pair<PinSymbol, int>(E, E_GPIO_NUMBER));
 }
 
 void LCDScreen::ClearDisplay()
@@ -155,14 +206,6 @@ void LCDScreen::ClearDisplay()
 	Write4Bits(0x01);
 	std::this_thread::sleep_for(std::chrono::milliseconds(5));
 	SetWriteMode();
-}
-
-
-void LCDScreen::WriteMessage(std::string str)
-{
-	for (std::string::iterator it=str.begin(); it != str.end(); ++it) {
-		WriteChar(*it);
-	}
 }
 
 void LCDScreen::WriteChar(char c)
@@ -186,9 +229,9 @@ void LCDScreen::Write4Bits(uint8_t value)
 
 void LCDScreen::PulseEnable()
 {
-	SetEnable(gpio_utilities::PinValue::HIGH);
+	PinWrite(E, gpio_utilities::PinValue::HIGH);
 	std::this_thread::sleep_for(std::chrono::microseconds(1000));
-	SetEnable(gpio_utilities::PinValue::LOW);
+	PinWrite(E, gpio_utilities::PinValue::LOW);
 	std::this_thread::sleep_for(std::chrono::microseconds(400));
 }
 
@@ -202,18 +245,46 @@ void LCDScreen::PinWrite(PinSymbol pin, gpio_utilities::PinValue value)
 	}
 }
 
+void LCDScreen::CursorHome()
+{
+	SetCommandMode();
+
+	// Command for returning cursor to home corresponds
+	// to the value 0000 0010 in binary.
+	uint8_t cmd = 0x02;
+
+	unsigned int upper_bits = cmd >> 4;
+	unsigned int lower_bits = cmd & 0x0f;
+	Write4Bits(upper_bits);
+	Write4Bits(lower_bits);
+
+	SetWriteMode();
+}
+
 void LCDScreen::SetCursorPosition(int row, int col)
 {
-	if ((0 <= row && row <= 15) && (0 <= col && col <= 1)) {
-		for (int i = 0; i < row; ++i) {
+	if ((0 <= row && row <= 1) && (0 <= col && col <= 15)) {
+		// First, set the cursor to home.
+		CursorHome();
+
+		// Now set the cursor to the correct row.
+		// Either row is 0, or 1. If 0, do nothing here.
+		if (row == 1) { 
+			for (int i = 0; i < 40; ++i) {
+				ShiftCursorRight();
+			}
+		}
+
+		// Now set the cursor to the correct column.
+		for (int i = 0; i < col; ++i) {
 			ShiftCursorRight();
 		}
 	}
 	else {
 		std::cerr << "Cannot set cursor position in LCDScreen::SetCursorPosition." << std::endl;
 		std::cerr << "Must have: " << std::endl;
-		std::cerr << "\t0 <= row <= 15;" << std::endl;
-		std::cerr << "\t0 <= col <= 1." << std::endl;
+		std::cerr << "\t0 <= row <= 1;" << std::endl;
+		std::cerr << "\t0 <= col <= 15." << std::endl;
 	}
 }
 
@@ -221,12 +292,14 @@ void LCDScreen::ShiftCursorRight()
 {
 	SetCommandMode();
 
-	uint8_t val = 0x14;
+	// Command for shifting the cursor to the right by 1 corresponds
+	// to the value 0001 0100 in binary.
+	uint8_t cmd = 0x14;
 
-	unsigned int upperBits = val >> 4;
-	unsigned int lowerBits = val & 0xF;
-	Write4Bits(upperBits);
-	Write4Bits(lowerBits);
+	unsigned int upper_bits = cmd >> 4;
+	unsigned int lower_bits = cmd & 0x0f;
+	Write4Bits(upper_bits);
+	Write4Bits(lower_bits);
 
 	SetWriteMode();
 }

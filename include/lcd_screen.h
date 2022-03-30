@@ -1,8 +1,11 @@
 #ifndef LCD_SCREEN_H
 #define LCD_SCREEN_H
 
+#include <atomic>
 #include <map>
+#include <mutex>
 #include <string>
+#include <thread>
 #include "gpio_utilities.h"
 
 /*
@@ -34,14 +37,14 @@ public:
 	LCDScreen(LCDScreen const &) = delete;
 	void operator=(LCDScreen const &) = delete;
 
-    // Write a full string to the LCD.
-    void WriteMessage(std::string str);
+    // Set top and bottom messages of the LCD screen.
+    void SetTopMessage(std::string message);
+    void SetBottomMessage(std::string message);
+
+    void WriteMessageBottomLine(std::string str);
 
     // Clear the LCD display.
     void ClearDisplay();
-
-    void SetCursorPosition(int row, int col);
-    void ShiftCursorRight();
 
 private:
     enum PinSymbol {
@@ -56,6 +59,12 @@ private:
 	LCDScreen();
 	~LCDScreen();
 
+    void Worker();
+
+    void OutputTopMessage();
+    void OutputBottomMessage();
+
+    // Set modes for either entering commands, or writing to the LCD screen.
     void SetCommandMode();
     void SetWriteMode();
 
@@ -63,12 +72,6 @@ private:
 
     // Set a pin to HIGH or LOW.
     void PinWrite(PinSymbol pin, gpio_utilities::PinValue value);
-
-    // Set RS pin to HIGH (write data) or LOW (write instruction).
-    void SetWriteMode(gpio_utilities::PinValue pinVal);
-
-    // Set E pin to HIGH or LOW.
-    void SetEnable(gpio_utilities::PinValue pinVal);
 
     // Derived from Arduino LiquidCrystal library
     // Write 4 bits to D4, D5, D6, D7 and pulse the LCD to read these values
@@ -84,9 +87,18 @@ private:
     // GPIO files.
     std::map<PinSymbol, int> pin_map;
 
-    // Cursor position tracking variables.
-    int cursor_position_row;
-    int cursor_position_col;
+    // Cursor control.
+    void CursorHome();
+    void SetCursorPosition(int row, int col);
+    void ShiftCursorRight();
+
+    // Messages which are currently being displayed on the top and bottom line.
+    std::string top_message;
+    std::string bottom_message;
+
+    std::thread worker_thread;
+    std::atomic<bool> stop_worker;
+    std::mutex lcd_mutex;
 };
 
 #endif // LCD_SCREEN_H
