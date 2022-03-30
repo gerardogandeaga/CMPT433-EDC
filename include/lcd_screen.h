@@ -94,6 +94,9 @@ private:
 
     // Messages which are currently being displayed on the top and bottom line.
     std::string top_message;
+    bool top_message_rotating;
+    uint32_t top_message_index;
+
     std::string bottom_message;
 
     std::thread worker_thread;

@@ -113,6 +113,8 @@ LCDScreen::LCDScreen()
 
 	stop_worker = false;
 	worker_thread = std::thread(&LCDScreen::Worker, this);
+	top_message_rotating = false;
+	top_message_index = 0;
 }
 
 LCDScreen::~LCDScreen()
@@ -143,6 +145,17 @@ void LCDScreen::SetTopMessage(std::string message)
 	// Lock messages for concurrency.
 	std::lock_guard<std::mutex> lock(lcd_mutex);
 	top_message = std::string(message);
+
+	// Check if we have a long message.
+	if (top_message.length() > 16) {
+		// Add whitespace for clarity when displaying the message.
+		top_message += "    ";
+		top_message_rotating = true;
+		top_message_index = 0;
+	}
+	else {
+		top_message_rotating = false;
+	}
 }
 
 void LCDScreen::OutputTopMessage() {
@@ -151,9 +164,22 @@ void LCDScreen::OutputTopMessage() {
 
 	// Lock messages for concurrency.
 	std::lock_guard<std::mutex> lock(lcd_mutex);
-	for (char ch : top_message) {
+
+	std::string output_str = top_message;
+	if (top_message_rotating) {
+		// Compute the string we want to output.
+		int str_start = top_message_index;
+		int str_length = top_message.length() - str_start;
+		str_length = str_length > 16 ? 16 : str_length;
+		output_str = top_message.substr(str_start, str_length) + top_message.substr(0, 16 - str_length);
+	}
+	
+	// Output string.
+	for (char ch : output_str) {
 		WriteChar(ch);
 	}
+
+	top_message_index = (top_message_index + 1) % top_message.length();
 }
 
 void LCDScreen::SetBottomMessage(std::string message)
