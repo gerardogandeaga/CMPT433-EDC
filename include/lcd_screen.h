@@ -23,6 +23,11 @@
  * D5 -- P8_9
  * D6 -- P9_27
  * D7 -- P9_15
+ * 
+ * Notes:
+ * - In our implementation, the LCD is set to entry mode by default. That is,
+ * after execution of any method in this class, the LCD is not in command entry
+ * mode.
  */
 
 class LCDScreen {
@@ -37,14 +42,18 @@ public:
 	LCDScreen(LCDScreen const &) = delete;
 	void operator=(LCDScreen const &) = delete;
 
-    // Set top and bottom messages of the LCD screen.
-    void SetTopMessage(std::string message);
-    void SetBottomMessage(std::string message);
+    // Updates the shown status on the LCD screen.
+    void SetStatus(std::string severity, bool isMaster);
 
-    void WriteMessageBottomLine(std::string str);
+    // Debugging.
+    void WriteMessage(std::string);
 
     // Clear the LCD display.
     void ClearDisplay();
+
+    // Display ON/OFF control.
+    void DisplayOn();
+    void DisplayOff();
 
 private:
     enum PinSymbol {
@@ -58,6 +67,8 @@ private:
 
 	LCDScreen();
 	~LCDScreen();
+
+    void PlayInitMessage();
 
     void Worker();
 
@@ -88,16 +99,7 @@ private:
     std::map<PinSymbol, int> pin_map;
 
     // Cursor control.
-    void CursorHome();
-    void SetCursorPosition(int row, int col);
-    void ShiftCursorRight();
-
-    // Messages which are currently being displayed on the top and bottom line.
-    std::string top_message;
-    bool top_message_rotating;
-    uint32_t top_message_index;
-
-    std::string bottom_message;
+    void SetCursorPosition(int row, int column);
 
     std::thread worker_thread;
     std::atomic<bool> stop_worker;

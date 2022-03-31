@@ -51,6 +51,7 @@ LCDScreen::LCDScreen()
 	PinWrite(D6, gpio_utilities::PinValue::LOW);
 	PinWrite(D7, gpio_utilities::PinValue::LOW);
 
+	// Enter command mode to begin initializing.
 	SetCommandMode();
 
 	/*
@@ -60,67 +61,165 @@ LCDScreen::LCDScreen()
 	 * under the section "4-Bit Interface, Initialization by Instruction."
 	 */
 
-	// Special Function Set 1
+	// Special Function Set 1.
 	Write4Bits(0x03); // 0011
-	std::this_thread::sleep_for(std::chrono::milliseconds(5));
-	
-	// Special Function Set 2
+	std::this_thread::sleep_for(std::chrono::microseconds(64));
+	// Special Function Set 2.
 	Write4Bits(0x03); // 0011
-	std::this_thread::sleep_for(std::chrono::milliseconds(5));
-
-	// Special Function Set 3
+	std::this_thread::sleep_for(std::chrono::microseconds(64));
+	// Special Function Set 3.
 	Write4Bits(0x03); // 0011
-	std::this_thread::sleep_for(std::chrono::microseconds(150));
+	std::this_thread::sleep_for(std::chrono::microseconds(128));
 
-	// Initial Function Set to change interface
-	Write4Bits(0x02); // 0011
-	std::this_thread::sleep_for(std::chrono::microseconds(150));
-
-	// Function Set (0010NF**)
-	Write4Bits(0x02); // (0010)
-	Write4Bits(0x08); // (1000)
-	std::this_thread::sleep_for(std::chrono::microseconds(100));
-
-	// Display ON/OFF Control 
-	// (DO NOT CONFIGURE DCB HERE)
-	Write4Bits(0x00); // (0000)
-	Write4Bits(0x08); // (1000)
-	std::this_thread::sleep_for(std::chrono::microseconds(100));
-
-	// Clear Display
-	Write4Bits(0x00);
-	Write4Bits(0x01);
+	// Sets to 4-bit operation.
+	Write4Bits(0x2); /* 0010 */
 	std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-	// Entry Mode Set
-	Write4Bits(0x00); // (0000)
-	Write4Bits(0x06); // (0110)
-	std::this_thread::sleep_for(std::chrono::microseconds(100));
-	//== Initialization Done ==//
+	// Sets to 4-bit operation. Sets 2-line display. Selects 5x8 dot character font.
+	Write4Bits(0x2); /* 0010 - We can alternatively write 0000 here for 8-bit operation. */
+	Write4Bits(0x8); /* 1000 - We can alternatively write 1100 here for 5x10 dot font. */
+	std::this_thread::sleep_for(std::chrono::microseconds(128));
 
-	// Display ON/OFF Control
-	Write4Bits(0x00); // (0000)
-	Write4Bits(0x0D); // (1100)
-	std::this_thread::sleep_for(std::chrono::microseconds(100));
+	// Display ON/OFF control.
+	Write4Bits(0x0); /* 0000 */
+	Write4Bits(0x8); /* 1000 */
+	std::this_thread::sleep_for(std::chrono::microseconds(128));
 
-	// Clear Display
-	Write4Bits(0x00);
-	Write4Bits(0x01);
-	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	// Sets mode to increment cursor position by 1 and shift right when writing to display.
+	Write4Bits(0x0); /* 0000 */
+	Write4Bits(0x6); /* 0110 */
+	std::this_thread::sleep_for(std::chrono::microseconds(128));
 
-	// Pull RS up to write data
+	// Clear the display.
+	Write4Bits(0x0); /* 0000 */
+	Write4Bits(0x1); /* 0001 */
+	std::this_thread::sleep_for(std::chrono::microseconds(64));
+
+	// Turns on display. This corresponds to the instruction 0000 1100 in binary.
+	// To be able to see the cursor, use 0000 1110.
+	// To enable cursor blinking, use 0000 1111.
+	Write4Bits(0x0); /* 0000 */
+	Write4Bits(0xC); /* 1100 */
+	std::this_thread::sleep_for(std::chrono::microseconds(64));
+
+
+	// Pull RS up to write data.
 	SetWriteMode();
 
-	stop_worker = false;
-	worker_thread = std::thread(&LCDScreen::Worker, this);
-	top_message_rotating = false;
-	top_message_index = 0;
+	PlayInitMessage();
+
+	ClearDisplay();
+
+	// stop_worker = false;
+	// worker_thread = std::thread(&LCDScreen::Worker, this);
+	// top_message_rotating = false;
+	// top_message_index = 0;
+}
+
+void LCDScreen::PlayInitMessage()
+{
+	std::string init_msg = "    Initializing Earthquake Detection Cluster . . .    ";
+	for (int i = 0; i < 54; ++i)
+	{
+		// Set cursor position to the start of the top line.
+		SetCursorPosition(0, 0);
+		// Compute the string we want to output.
+		int str_start = i;
+		int str_length = init_msg.length() - str_start;
+		str_length = str_length > 16 ? 16 : str_length;
+		std::string output_str = init_msg.substr(str_start, str_length);
+		
+		// Output string.
+		WriteMessage(output_str);
+
+		// Sleep for 200 ms.	
+		std::this_thread::sleep_for(std::chrono::milliseconds(300));
+	}
 }
 
 LCDScreen::~LCDScreen()
 {
-	stop_worker = true;
-	worker_thread.join();
+	// Turn display off.
+	DisplayOff();
+
+	// stop_worker = true;
+	// worker_thread.join();
+}
+
+void LCDScreen::SetStatus(std::string severity, bool isMaster)
+{
+	// On the first line, output the severity.
+	SetCursorPosition(0, 0);
+	WriteMessage(severity);
+
+	// Show if master node.
+	SetCursorPosition(0, 13);
+	if (isMaster) {
+		WriteMessage("[M]");
+	}
+	else {
+		WriteMessage("[*]");
+	}
+}
+
+void LCDScreen::DisplayOn()
+{
+	// Enter command mode.
+	SetCommandMode();
+	std::this_thread::sleep_for(std::chrono::microseconds(50));
+
+	// Instruction to turn on display (without showing cursor) corresponds to
+	// 0000 1100 in binary.
+	Write4Bits(0x0);
+	Write4Bits(0xC);
+	std::this_thread::sleep_for(std::chrono::microseconds(50));
+	
+	// Display stays in write mode by default.
+	SetWriteMode();
+	std::this_thread::sleep_for(std::chrono::microseconds(50));
+}
+
+void LCDScreen::DisplayOff()
+{
+	// Enter command mode.
+	SetCommandMode();
+	std::this_thread::sleep_for(std::chrono::microseconds(50));
+
+	// Instruction to turn off display corresponds to 0000 1000 in binary.
+	Write4Bits(0x0);
+	Write4Bits(0x8);
+	std::this_thread::sleep_for(std::chrono::microseconds(50));
+	
+	// Display stays in write mode by default.
+	SetWriteMode();
+	std::this_thread::sleep_for(std::chrono::microseconds(50));
+}
+
+void LCDScreen::SetCursorPosition(int row, int column)
+{
+	// Enter command mode.
+	SetCommandMode();
+
+	if ((0 <= row && row <= 1) && (0 <= column && column <= 15)) {
+		// Instruction corresponding to setting the location of the cursor
+		// is given by 1xxx xxxx in binary, where the bits denoted by x 
+		// tells us the location. Thus, 0x80 = 1000 0000 corresponds to the
+		// start of the first line, and 1100 0000 corresponds to the start
+		// of the second line.
+		uint8_t val = (row == 0) ? 0x80 : 0xC0;
+		val += column;
+		Write4Bits(val >> 4);
+		Write4Bits(val & 0xf);
+	}
+	else {
+		std::cerr << "Cannot set cursor position in LCDScreen::SetCursorPosition." << std::endl;
+		std::cerr << "Must have: " << std::endl;
+		std::cerr << "\t0 <= row <= 1;" << std::endl;
+		std::cerr << "\t0 <= col <= 15." << std::endl;
+	}
+
+	// Display stays in write mode by default.
+	SetWriteMode();
 }
 
 void LCDScreen::Worker()
@@ -129,17 +228,18 @@ void LCDScreen::Worker()
 		// First, clear the screen.
 		ClearDisplay();
 
-		// Output the top message.
-		OutputTopMessage();
+		// // Output the top message.
+		// OutputTopMessage();
 
-		// Output the bottom message.
-		OutputBottomMessage();
+		// // Output the bottom message.
+		// OutputBottomMessage();
 
 		// Sleep for 200 ms.	
 		std::this_thread::sleep_for(std::chrono::milliseconds(200));
 	}
 }
 
+/*
 void LCDScreen::SetTopMessage(std::string message)
 {
 	// Lock messages for concurrency.
@@ -200,7 +300,7 @@ void LCDScreen::OutputBottomMessage()
 		WriteChar(ch);
 	}
 }
-
+*/
 void LCDScreen::SetCommandMode()
 {
 	// Set RS pin to LOW.
@@ -227,19 +327,28 @@ void LCDScreen::SetUpPinToGPIOMapping()
 void LCDScreen::ClearDisplay()
 {
 	SetCommandMode();
-	// Clear Display
+
+	// Instruction to clear display.
 	Write4Bits(0x00);
 	Write4Bits(0x01);
-	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	std::this_thread::sleep_for(std::chrono::microseconds(50));
+
 	SetWriteMode();
+}
+
+void LCDScreen::WriteMessage(std::string message)
+{
+	for (char ch : message) {
+		WriteChar(ch);
+	}
 }
 
 void LCDScreen::WriteChar(char c)
 {
-	unsigned int upperBits = (c >> 4);
-	unsigned int lowerBits = c & 0xF;
-	Write4Bits(upperBits);
-	Write4Bits(lowerBits);
+	unsigned int upper_bits = (c >> 4);
+	unsigned int lower_bits = c & 0xF;
+	Write4Bits(upper_bits);
+	Write4Bits(lower_bits);
 }
 
 void LCDScreen::Write4Bits(uint8_t value)
@@ -256,11 +365,10 @@ void LCDScreen::Write4Bits(uint8_t value)
 void LCDScreen::PulseEnable()
 {
 	PinWrite(E, gpio_utilities::PinValue::HIGH);
-	std::this_thread::sleep_for(std::chrono::microseconds(1000));
+	std::this_thread::sleep_for(std::chrono::microseconds(600));
 	PinWrite(E, gpio_utilities::PinValue::LOW);
-	std::this_thread::sleep_for(std::chrono::microseconds(400));
+	std::this_thread::sleep_for(std::chrono::microseconds(600));
 }
-
 
 void LCDScreen::PinWrite(PinSymbol pin, gpio_utilities::PinValue value)
 {
@@ -269,63 +377,4 @@ void LCDScreen::PinWrite(PinSymbol pin, gpio_utilities::PinValue value)
 		std::cerr << "Failed to set gpio" << gpio_number << " to " << value;
 		std::cerr << "in LCDScreen::PinWrite." << std::endl;
 	}
-}
-
-void LCDScreen::CursorHome()
-{
-	SetCommandMode();
-
-	// Command for returning cursor to home corresponds
-	// to the value 0000 0010 in binary.
-	uint8_t cmd = 0x02;
-
-	unsigned int upper_bits = cmd >> 4;
-	unsigned int lower_bits = cmd & 0x0f;
-	Write4Bits(upper_bits);
-	Write4Bits(lower_bits);
-
-	SetWriteMode();
-}
-
-void LCDScreen::SetCursorPosition(int row, int col)
-{
-	if ((0 <= row && row <= 1) && (0 <= col && col <= 15)) {
-		// First, set the cursor to home.
-		CursorHome();
-
-		// Now set the cursor to the correct row.
-		// Either row is 0, or 1. If 0, do nothing here.
-		if (row == 1) { 
-			for (int i = 0; i < 40; ++i) {
-				ShiftCursorRight();
-			}
-		}
-
-		// Now set the cursor to the correct column.
-		for (int i = 0; i < col; ++i) {
-			ShiftCursorRight();
-		}
-	}
-	else {
-		std::cerr << "Cannot set cursor position in LCDScreen::SetCursorPosition." << std::endl;
-		std::cerr << "Must have: " << std::endl;
-		std::cerr << "\t0 <= row <= 1;" << std::endl;
-		std::cerr << "\t0 <= col <= 15." << std::endl;
-	}
-}
-
-void LCDScreen::ShiftCursorRight()
-{
-	SetCommandMode();
-
-	// Command for shifting the cursor to the right by 1 corresponds
-	// to the value 0001 0100 in binary.
-	uint8_t cmd = 0x14;
-
-	unsigned int upper_bits = cmd >> 4;
-	unsigned int lower_bits = cmd & 0x0f;
-	Write4Bits(upper_bits);
-	Write4Bits(lower_bits);
-
-	SetWriteMode();
 }
