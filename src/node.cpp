@@ -39,7 +39,7 @@ Node::Node(const char* serverAddr, int serverPort)
 	Accelerometer::GetInstance();
 	VibrationSensor::GetInstance();
 	SegDisplay::GetInstance();
-
+	Accelerometer::GetInstance();
 	// ================================
 
 	nodeQuakeMagnitude = MIN_MAGNITUDE;
@@ -62,6 +62,7 @@ Node::~Node()
 	Accelerometer::DestroyInstance();
 	VibrationSensor::DestroyInstance();
 	SegDisplay::DestroyInstance();
+	Network::DestroyInstance();
 	// ================================
 }
 
