@@ -8,6 +8,7 @@ Network *Network::instance = nullptr;
 Network::Network(const char* serverAddr, int serverPort) {
     signal(SIGPIPE, SIG_IGN);
     running = true;
+    consensusQuakeMagnitude = 0;
     host = serverAddr;
     port = serverPort;
     nodeId = registerNode();
@@ -87,7 +88,7 @@ int Network::registerNode() {
 void Network::parseResponse(char* response) {
     char *token = NULL;
     token = strtok(response, "\n");
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 7; i++) {
         token = strtok(NULL, "\n");
     }
     int size = strlen(token);
@@ -99,6 +100,11 @@ void Network::parseResponse(char* response) {
             severities.push_back(digit);
         }
     }
+    int sum = 0;
+    for (auto& n : severities) {
+        sum += n;
+    }
+    consensusQuakeMagnitude = round(sum / (double)severities.size());
 }
 
 void Network::getRequests() {
@@ -159,9 +165,16 @@ void Network::putRequests() {
 
     int bytes, sent, received, total;
 
+    Node* node;
+
     while (running) {
+        node = Node::GetInstanceIfExits();
+        if (node == nullptr) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            continue;
+        }
         char message[256], response[128];
-        int severity = 2;
+        int severity = node->getNodeQuakeMagnitude();
         sprintf(message, message_fmt, nodeId, severity);
         int sd = socket(AF_INET, SOCK_STREAM, 0);
         connect(sd, (struct sockaddr*) &sin, sizeof(sin));
@@ -242,4 +255,12 @@ void Network::deregister() {
     } while (received < total);
 
     close(sd);
+}
+
+int Network::getConsensusQuakeMagnitude() {
+    return consensusQuakeMagnitude;
+}
+
+int Network::getNumNodes() {
+    return severities.size();
 }

@@ -9,6 +9,7 @@
 #include "accelerometer.h"
 #include "vibrationSensor.h"
 #include "segDisplay.h"
+#include "network.hpp"
 #include "node.h"
 
 #define TAG "NODE: "
@@ -32,19 +33,19 @@
 Node *Node::instance{nullptr};
 std::mutex Node::mtx;
 
-Node::Node() 
+Node::Node(const char* serverAddr, int serverPort) 
 {
 	// init the modules ===============
 	Accelerometer::GetInstance();
 	VibrationSensor::GetInstance();
 	SegDisplay::GetInstance();
+
 	// ================================
 
-	isNodeMaster = false;
-	numberOfConnectedNodes = 0;
 	nodeQuakeMagnitude = MIN_MAGNITUDE;
-	consensusQuakeMagnitude = MIN_MAGNITUDE;
 	nodeVibrationPulse = MIN_MAGNITUDE;
+	host = serverAddr;
+	port = serverPort;
 
 	// launch the worker thread
 	stopWorker = false;
@@ -68,13 +69,14 @@ void Node::worker()
 {
 	Accelerometer *accInst;
 	VibrationSensor *vibsInst;
+	Network *netInst;
 	// keep track of the previous sample to track the difference
 	Vector prevSample = Accelerometer::GetInstance()->getAcceleration();
 	while (!stopWorker) {
 		// update reference to the instance as it could get destroyed during execution
 		accInst = Accelerometer::GetInstance();
 		vibsInst = VibrationSensor::GetInstance();
-
+		netInst = Network::GetInstance(host, port);
 		// compute the change in acceleration
 		Vector currSample = accInst->getAcceleration();
 
@@ -84,8 +86,8 @@ void Node::worker()
 
 		std::cout << TAG
 			<< "mag = " << nodeQuakeMagnitude 
-			<< ", consensus = " << consensusQuakeMagnitude 
-			<< ", # connected nodes = " << numberOfConnectedNodes
+			<< ", consensus = " << netInst->getConsensusQuakeMagnitude() 
+			<< ", # connected nodes = " << netInst->getNumNodes()
 			<< std::endl;
 
 		std::this_thread::sleep_for(std::chrono::nanoseconds(SAMPLE_RATE));
@@ -136,78 +138,17 @@ void Node::computeNodeQuakeMagnitude(Vector prev, Vector curr, int vibrationPuls
 	}
 }
 
-void Node::computeConsensusQuakeMagnitude(std::vector<int> magnitudes)
-{
-	// only the master 
-	if (isNodeMaster) {
-		std::lock_guard<std::mutex> lock(consensusMtx);
-
-		// average the magnitude
-		int nNodes = magnitudes.size() + 1; // nodes + this one
-		double sum = (double)nodeQuakeMagnitude;
-
-		for (int i = 0; i < nNodes-1; i++) {
-			sum += magnitudes[i];
-		}
-
-		// TODO: can we do something with standard deviation??
-		consensusQuakeMagnitude = round(sum / (double)nNodes);
-	}
-	else {
-		std::cerr << TAG << "Error! only master node can compute a consensus magnitude!" << std::endl;
-		exit(EXIT_FAILURE);
-	}
-}
-
-bool Node::isMaster(void)
-{
-	return isNodeMaster;
-}
-
-void Node::setNodeAsMaster(bool isMaster)
-{
-	isNodeMaster = isMaster;
-}
-
-int Node::getNumberOfConnectedNodes(void)
-{
-	return numberOfConnectedNodes;
-}
-
-void Node::setNumberOfConnectedNodes(int nNodes)
-{
-	numberOfConnectedNodes = nNodes;
-}
-
 int Node::getNodeQuakeMagnitude(void) 
 {
 	return nodeQuakeMagnitude;
 }
 
-int Node::getConsensusQuakeMagnitude(void)
-{
-	return consensusQuakeMagnitude;
-}
-
-void Node::setConsensusQuakeMagnitude(int magnitude)
-{
-	if (!isNodeMaster) {
-		std::lock_guard<std::mutex> lock(consensusMtx);
-		// set the value sent from the master node
-		consensusQuakeMagnitude = magnitude;
-	}
-	else {
-		std::cerr << "Error! this method should only be called from the slave nodes (i.e not the master) as they receive the consensus magnitude from the master!" << std::endl;
-		exit(EXIT_FAILURE);
-	}
-}
-
-Node *Node::Initialize() 
+Node *Node::Initialize(const char* serverAddr, int serverPort) 
 {
 	std::lock_guard<std::mutex> lock(mtx);
 
 	if (instance == nullptr)
-		instance = new Node();
+		instance = new Node(serverAddr, serverPort);
 
 	return instance;
 }

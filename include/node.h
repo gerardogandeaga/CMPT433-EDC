@@ -17,7 +17,7 @@ public:
 	Node(Node &other) = delete;
 	void operator=(const Node &) = delete;
 	
-	static Node *Initialize(void);
+	static Node *Initialize(const char* serverAddr, int serverPort);
 	static void End(void); 
 	// returns an instance but does not initialize a new one if it doesnt exist.
 	// this prevents the re-instantiation of the Node class if it shut down but
@@ -37,12 +37,6 @@ public:
 
 	// get the consensus reading - For the LED
 	int getConsensusQuakeMagnitude(void);
-	// set the consensus reading on the slave nodes (set the value from the master)
-	// this method should only be called on slaves
-	void setConsensusQuakeMagnitude(int magnitude);
-	// this method computes a consensus magnitude from a vector of values from the slave nodes
-	// this method should only be called on the master! the vector should not inlcude the masters magnitude
-	void computeConsensusQuakeMagnitude(std::vector<int> magnitudes);
 
 private:
 	static Node *instance;
@@ -54,16 +48,16 @@ private:
 	std::mutex nodeMagMtx;
 	std::mutex consensusMtx;
 
-	bool isNodeMaster;			 // is this node the master?
-	int numberOfConnectedNodes;  // number of connected nodes in network
 	int nodeQuakeMagnitude;		 // the magnitude of this node
-	int consensusQuakeMagnitude; // consensus, this is the average of all the nodes in the system (only computed by master)
 	int nodeVibrationPulse;      // pulse from vibration sensor
+
+	const char *host;
+    int port;
 
 	void computeNodeQuakeMagnitude(Vector prev, Vector curr, int vibrationPulse);
 
 protected:
-	Node();
+	Node(const char* serverAddr, int serverPort);
 	~Node();
 
 	bool stopWorker;

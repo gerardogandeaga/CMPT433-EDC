@@ -24,8 +24,16 @@ void lcd_test()
 	}
 }
 
-int main() 
+int main(int argc, char *argv[]) 
 {
+	if (argc != 3) {
+		std::cout << "Wrong number of arguments, expected 2" << std::endl;
+		return -1;
+	}
+
+	const char *serverAddr = argv[1];
+	int port = atoi(argv[2]);
+	
 	std::cout << "Earthquake Detection Cluster" << std::endl;
 	std::cout << "============================" << std::endl;
 
@@ -33,7 +41,7 @@ int main()
 	i2c_utilities::initI2c();
 
 	// init the node
-	Node::Initialize();
+	Node::Initialize(serverAddr, port);
 
 	while (1);
 
