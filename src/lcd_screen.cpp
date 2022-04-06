@@ -26,87 +26,205 @@ LCDScreen::LCDScreen()
 
 	// First, export the necessary GPIO pins.
 	for (const auto symbol_pin_pair : pin_map) {
-		gpio_utilities::ExportGPIOPin(symbol_pin_pair.second);
+		if (!gpio_utilities::ExportGPIOPin(symbol_pin_pair.second)) {
+			std::cerr << "Failed to export gpio" << symbol_pin_pair.second;
+			std::cerr << " in LCDScreen constructor." << std::endl;
+			abort(); 
+		}
+
+		// Sleep for 300 ms seconds after exporting each pin.
+		std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+		if (!gpio_utilities::WriteToGPIODirectionFile(symbol_pin_pair.second,
+		                                              gpio_utilities::PinDirection::OUT)) {
+			std::cerr << "Failed to set gpio" << symbol_pin_pair.second << " direction to OUT";
+			std::cerr << " in LCDScreen constructor." << std::endl;
+			abort();
+		}
+		// do we want to crash if the LCD doesn't initialize?
 	}
 
-	// Sleep for 300 ms after exporting.
-	std::this_thread::sleep_for(std::chrono::milliseconds(3000)); // 300 ms per pin
-
-	// For each pin, set direction to `out`
-	for (int i = 0; i < NUM_PINS; ++i) {
-		int gpio_number = pin_map.find((PinSymbol)i)->second;
-		gpio_utilities::WriteToGPIODirectionFile(gpio_number, 
-		                                         gpio_utilities::PinDirection::OUT);
-	}
-
-	// Set each data pin to 0
+	// Set each data pin and E pin to 0.
+	PinWrite(E, gpio_utilities::PinValue::LOW);
 	PinWrite(D4, gpio_utilities::PinValue::LOW);
 	PinWrite(D5, gpio_utilities::PinValue::LOW);
 	PinWrite(D6, gpio_utilities::PinValue::LOW);
 	PinWrite(D7, gpio_utilities::PinValue::LOW);
 
-	// Pull RS and E low
-	SetWriteMode(gpio_utilities::PinValue::LOW);
-	SetEnable(gpio_utilities::PinValue::LOW);
+	// Enter command mode to begin initializing.
+	SetCommandMode();
 
-	//== Initialization by Instruction ==//
-	// Special Function Set 1
-	Write4Bits(0x03);
-	std::this_thread::sleep_for(std::chrono::milliseconds(5));
-	
-	// Special Function Set 2
-	Write4Bits(0x03);
-	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	/*
+	 * The sequence of commands used to initialize the LCD display were taken
+	 * from
+	 * https://web.alfredstate.edu/faculty/weimandn/lcd/lcd_initialization/lcd_initialization_index.html
+	 * under the section "4-Bit Interface, Initialization by Instruction."
+	 */
 
-	// Special Function Set 3
-	Write4Bits(0x03);
-	std::this_thread::sleep_for(std::chrono::microseconds(150));
+	// Special Function Set 1.
+	Write4Bits(0x03); // 0011
+	std::this_thread::sleep_for(std::chrono::microseconds(64));
+	// Special Function Set 2.
+	Write4Bits(0x03); // 0011
+	std::this_thread::sleep_for(std::chrono::microseconds(64));
+	// Special Function Set 3.
+	Write4Bits(0x03); // 0011
+	std::this_thread::sleep_for(std::chrono::microseconds(128));
 
-	// Initial Function Set to change interface
-	Write4Bits(0x02);
-	std::this_thread::sleep_for(std::chrono::microseconds(150));
-
-	// Function Set (0010NF**)
-	Write4Bits(0x02); // (0010)
-	Write4Bits(0x08); // (1000)
-	std::this_thread::sleep_for(std::chrono::microseconds(100));
-
-	// Display ON/OFF Control 
-	// (DO NOT CONFIGURE DCB HERE)
-	Write4Bits(0x00); // (0000)
-	Write4Bits(0x08); // (1000)
-	std::this_thread::sleep_for(std::chrono::microseconds(100));
-
-	// Clear Display
-	Write4Bits(0x00);
-	Write4Bits(0x01);
+	// Sets to 4-bit operation.
+	Write4Bits(0x2); /* 0010 */
 	std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-	// Entry Mode Set
-	Write4Bits(0x00); // (0000)
-	Write4Bits(0x06); // (0110)
-	std::this_thread::sleep_for(std::chrono::microseconds(100));
-	//== Initialization Done ==//
+	// Sets to 4-bit operation. Sets 2-line display. Selects 5x8 dot character font.
+	Write4Bits(0x2); /* 0010 - We can alternatively write 0000 here for 8-bit operation. */
+	Write4Bits(0x8); /* 1000 - We can alternatively write 1100 here for 5x10 dot font. */
+	std::this_thread::sleep_for(std::chrono::microseconds(128));
 
-	// Display ON/OFF Control
-	Write4Bits(0x00); // (0000)
-	Write4Bits(0x0D); // (1100)
-	std::this_thread::sleep_for(std::chrono::microseconds(100));
+	// Display ON/OFF control.
+	Write4Bits(0x0); /* 0000 */
+	Write4Bits(0x8); /* 1000 */
+	std::this_thread::sleep_for(std::chrono::microseconds(128));
 
-	// Clear Display
-	Write4Bits(0x00);
-	Write4Bits(0x01);
-	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	// Sets mode to increment cursor position by 1 and shift right when writing to display.
+	Write4Bits(0x0); /* 0000 */
+	Write4Bits(0x6); /* 0110 */
+	std::this_thread::sleep_for(std::chrono::microseconds(128));
 
-	// Pull RS up to write data
-	SetWriteMode(gpio_utilities::PinValue::HIGH);
+	// Clear the display.
+	Write4Bits(0x0); /* 0000 */
+	Write4Bits(0x1); /* 0001 */
+	std::this_thread::sleep_for(std::chrono::microseconds(64));
+
+	// Turns on display. This corresponds to the instruction 0000 1100 in binary.
+	// To be able to see the cursor, use 0000 1110.
+	// To enable cursor blinking, use 0000 1111.
+	Write4Bits(0x0); /* 0000 */
+	Write4Bits(0xC); /* 1100 */
+	std::this_thread::sleep_for(std::chrono::microseconds(64));
+
+
+	// Pull RS up to write data.
+	SetWriteMode();
+
+	PlayInitMessage();
+
+	ClearDisplay();
+}
+
+void LCDScreen::PlayInitMessage()
+{
+	std::string init_msg = "    Initializing Earthquake Detection Cluster . . .    ";
+	for (int i = 0; i < 54; ++i)
+	{
+		// Set cursor position to the start of the top line.
+		SetCursorPosition(0, 0);
+		// Compute the string we want to output.
+		int str_start = i;
+		int str_length = init_msg.length() - str_start;
+		str_length = str_length > 16 ? 16 : str_length;
+		std::string output_str = init_msg.substr(str_start, str_length);
+		
+		// Output string.
+		WriteMessage(output_str);
+
+		// Sleep for 200 ms.
+		std::this_thread::sleep_for(std::chrono::milliseconds(300));
+	}
 }
 
 LCDScreen::~LCDScreen()
 {
-
+	// Turn display off.
+	DisplayOff();
 }
 
+void LCDScreen::SetStatus(std::string severity, bool isMaster)
+{
+	// On the first line, output the severity.
+	SetCursorPosition(0, 0);
+	WriteMessage(severity);
+
+	// Show if master node in the top left.
+	SetCursorPosition(0, 13);
+	if (isMaster) {
+		WriteMessage("[M]");
+	}
+	else {
+		WriteMessage("[*]");
+	}
+}
+
+void LCDScreen::DisplayOn()
+{
+	// Enter command mode.
+	SetCommandMode();
+	std::this_thread::sleep_for(std::chrono::microseconds(50));
+
+	// Instruction to turn on display (without showing cursor) corresponds to
+	// 0000 1100 in binary.
+	Write4Bits(0x0);
+	Write4Bits(0xC);
+	std::this_thread::sleep_for(std::chrono::microseconds(50));
+	
+	// Display stays in write mode by default.
+	SetWriteMode();
+	std::this_thread::sleep_for(std::chrono::microseconds(50));
+}
+
+void LCDScreen::DisplayOff()
+{
+	// Enter command mode.
+	SetCommandMode();
+	std::this_thread::sleep_for(std::chrono::microseconds(50));
+
+	// Instruction to turn off display corresponds to 0000 1000 in binary.
+	Write4Bits(0x0);
+	Write4Bits(0x8);
+	std::this_thread::sleep_for(std::chrono::microseconds(50));
+	
+	// Display stays in write mode by default.
+	SetWriteMode();
+	std::this_thread::sleep_for(std::chrono::microseconds(50));
+}
+
+void LCDScreen::SetCursorPosition(int row, int column)
+{
+	// Enter command mode.
+	SetCommandMode();
+
+	if ((0 <= row && row <= 1) && (0 <= column && column <= 15)) {
+		// Instruction corresponding to setting the location of the cursor
+		// is given by 1xxx xxxx in binary, where the bits denoted by x 
+		// tells us the location. Thus, 0x80 = 1000 0000 corresponds to the
+		// start of the first line, and 1100 0000 corresponds to the start
+		// of the second line.
+		uint8_t val = (row == 0) ? 0x80 : 0xC0;
+		val += column;
+		Write4Bits(val >> 4);
+		Write4Bits(val & 0xf);
+	}
+	else {
+		std::cerr << "Cannot set cursor position in LCDScreen::SetCursorPosition." << std::endl;
+		std::cerr << "Must have: " << std::endl;
+		std::cerr << "\t0 <= row <= 1;" << std::endl;
+		std::cerr << "\t0 <= col <= 15." << std::endl;
+	}
+
+	// Display stays in write mode by default.
+	SetWriteMode();
+}
+
+void LCDScreen::SetCommandMode()
+{
+	// Set RS pin to LOW.
+	PinWrite(RS, gpio_utilities::PinValue::LOW);
+}
+
+void LCDScreen::SetWriteMode()
+{
+	// Set RS pin to HIGH.
+	PinWrite(RS, gpio_utilities::PinValue::HIGH);
+}
 
 void LCDScreen::SetUpPinToGPIOMapping()
 {
@@ -119,72 +237,57 @@ void LCDScreen::SetUpPinToGPIOMapping()
 	pin_map.insert(std::pair<PinSymbol, int>(E, E_GPIO_NUMBER));
 }
 
-void LCDScreen::SetWriteMode(gpio_utilities::PinValue pinVal)
-{
-	int RS_gpio_number = pin_map.find(RS)->second;
-	if (!gpio_utilities::WriteToGPIOValueFile(RS_gpio_number, pinVal)) {
-		std::cerr << "Failed to set RS pin to HIGH ";
-		std::cerr << "in LCDScreen::SetWriteMode." << std::endl;
-	}
-}
-
-void LCDScreen::SetEnable(gpio_utilities::PinValue pinVal)
-{
-	int E_gpio_number = pin_map.find(E)->second;
-	if (!gpio_utilities::WriteToGPIOValueFile(E_gpio_number, pinVal)) {
-		std::cerr << "Failed to set E pin to HIGH ";
-		std::cerr << "in LCDScreen::SignalEnable." << std::endl;
-	}
-}
-
 void LCDScreen::ClearDisplay()
 {
-	SetWriteMode(gpio_utilities::PinValue::LOW);
-	// Clear Display
+	SetCommandMode();
+
+	// Instruction to clear display.
 	Write4Bits(0x00);
 	Write4Bits(0x01);
-	std::this_thread::sleep_for(std::chrono::milliseconds(5));
-	SetWriteMode(gpio_utilities::PinValue::HIGH);
+	std::this_thread::sleep_for(std::chrono::microseconds(50));
+
+	SetWriteMode();
 }
 
-
-void LCDScreen::WriteMessage(std::string str)
+void LCDScreen::WriteMessage(std::string message)
 {
-	for (std::string::iterator it=str.begin(); it != str.end(); ++it) {
-		WriteChar(*it);
+	for (char ch : message) {
+		WriteChar(ch);
 	}
 }
 
 void LCDScreen::WriteChar(char c)
 {
-	unsigned int upperBits = (c >> 4) & 0xF;
-	unsigned int lowerBits = c & 0xF;
-	Write4Bits(upperBits);
-	Write4Bits(lowerBits);
+	unsigned int upper_bits = (c >> 4);
+	unsigned int lower_bits = c & 0xF;
+	Write4Bits(upper_bits);
+	Write4Bits(lower_bits);
 }
 
 void LCDScreen::Write4Bits(uint8_t value)
 {
 	for (int i = 0; i < NUM_DATABUS_PINS; ++i) {
-		PinWrite((PinSymbol) i, ((value >> i) & 0x01));
+		gpio_utilities::PinValue pin_value = (value >> i) & 0x01 ?
+		                                     gpio_utilities::PinValue::HIGH :
+											 gpio_utilities::PinValue::LOW;
+		PinWrite((PinSymbol)i, pin_value);
 	}
 	PulseEnable();
 }
 
 void LCDScreen::PulseEnable()
 {
-	SetEnable(gpio_utilities::PinValue::HIGH);
-	std::this_thread::sleep_for(std::chrono::microseconds(1000));
-	SetEnable(gpio_utilities::PinValue::LOW);
-	std::this_thread::sleep_for(std::chrono::microseconds(400));
+	PinWrite(E, gpio_utilities::PinValue::HIGH);
+	std::this_thread::sleep_for(std::chrono::microseconds(600));
+	PinWrite(E, gpio_utilities::PinValue::LOW);
+	std::this_thread::sleep_for(std::chrono::microseconds(600));
 }
 
-
-void LCDScreen::PinWrite(PinSymbol pin, int pinVal)
+void LCDScreen::PinWrite(PinSymbol pin, gpio_utilities::PinValue value)
 {
 	int gpio_number = pin_map.find(pin)->second;
-	if (!gpio_utilities::WriteToGPIOValueFile(gpio_number, (gpio_utilities::PinValue) pinVal)) {
-		std::cerr << "Failed to set gpio " << gpio_number << " to " << pinVal;
+	if (!gpio_utilities::WriteToGPIOValueFile(gpio_number, value)) {
+		std::cerr << "Failed to set gpio" << gpio_number << " to " << value;
 		std::cerr << "in LCDScreen::PinWrite." << std::endl;
 	}
 }

@@ -18,7 +18,7 @@ void lcd_test()
 	while (1) {
 		std::cout << "Displaying message \"" << str << "\" to LCD..." << std::endl;
 		LCD->ClearDisplay();
-		LCD->WriteMessage(str);
+		// LCD->WriteMessageTopLine(str);
 		std::cout << "Write a message to LCD: " << std::endl;
 		std::getline(std::cin >> std::ws, str);
 	}
