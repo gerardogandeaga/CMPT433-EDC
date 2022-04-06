@@ -10,6 +10,7 @@
 #include "vibrationSensor.h"
 #include "segDisplay.h"
 #include "node.h"
+#include "lcdScreen.h"
 
 #define TAG "NODE: "
 #define SAMPLE_RATE 50000000
@@ -38,6 +39,7 @@ Node::Node()
 	Accelerometer::GetInstance();
 	VibrationSensor::GetInstance();
 	SegDisplay::GetInstance();
+	LCDScreen::GetInstance();
 	// ================================
 
 	isNodeMaster = false;
@@ -45,6 +47,8 @@ Node::Node()
 	nodeQuakeMagnitude = MIN_MAGNITUDE;
 	consensusQuakeMagnitude = MIN_MAGNITUDE;
 	nodeVibrationPulse = MIN_MAGNITUDE;
+	auto *lcd = LCDScreen::GetInstance();
+	lcd->setStatus(isNodeMaster, numberOfConnectedNodes, nodeQuakeMagnitude, consensusQuakeMagnitude);
 
 	// launch the worker thread
 	stopWorker = false;
@@ -61,6 +65,7 @@ Node::~Node()
 	Accelerometer::DestroyInstance();
 	VibrationSensor::DestroyInstance();
 	SegDisplay::DestroyInstance();
+	LCDScreen::DestroyInstance();
 	// ================================
 }
 
@@ -68,17 +73,20 @@ void Node::worker()
 {
 	Accelerometer *accInst;
 	VibrationSensor *vibsInst;
+	LCDScreen *lcdInst;
 	// keep track of the previous sample to track the difference
 	Vector prevSample = Accelerometer::GetInstance()->getAcceleration();
 	while (!stopWorker) {
 		// update reference to the instance as it could get destroyed during execution
 		accInst = Accelerometer::GetInstance();
 		vibsInst = VibrationSensor::GetInstance();
+		lcdInst = LCDScreen::GetInstance();
 
 		// compute the change in acceleration
 		Vector currSample = accInst->getAcceleration();
 
 		computeNodeQuakeMagnitude(prevSample, currSample, vibsInst->getPulse());
+		lcdInst->setStatus(isNodeMaster, numberOfConnectedNodes, nodeQuakeMagnitude, consensusQuakeMagnitude);
 
 		prevSample = currSample;
 

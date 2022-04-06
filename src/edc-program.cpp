@@ -5,24 +5,9 @@
 
 #include "i2c_utilities.h"
 #include "accelerometer.h"
-#include "lcd_screen.h"
+#include "lcdScreen.h"
 #include "vibrationSensor.h"
 #include "node.h"
-
-void lcd_test()
-{
-	LCDScreen *LCD = LCDScreen::Get();
-
-	std::string str = "Hello World!";
-
-	while (1) {
-		std::cout << "Displaying message \"" << str << "\" to LCD..." << std::endl;
-		LCD->ClearDisplay();
-		// LCD->WriteMessageTopLine(str);
-		std::cout << "Write a message to LCD: " << std::endl;
-		std::getline(std::cin >> std::ws, str);
-	}
-}
 
 int main() 
 {
@@ -39,7 +24,7 @@ int main()
 
 	Node::End();
 
-	//lcd_test();
+	// lcd_test();
 
 	// Vector prev = accInst->getAcceleration();
 	// while (1) {

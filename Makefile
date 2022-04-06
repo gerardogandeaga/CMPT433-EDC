@@ -24,24 +24,14 @@ SRC = $(filter-out ./src/lcd-test.cpp, $(wildcard ./src/*.cpp))
 OBJ = $(SRC:$(SDIR)/%.cpp=$(ODIR)/%.o)
 DEP = $(OBJ:.o=.d)
 
-# LCD test dependencies.
-SRC_LCD_TEST = ./src/lcd-test.cpp ./src/lcd_screen.cpp ./src/gpio_utilities.cpp
-OBJ_LCD_TEST = $(SRC_LCD_TEST:$(SDIR)/%.cpp=$(ODIR)/%.o)
-DEP_LCD_TEST = $(OBJ_LCD_TEST:.o=.d)
-
 # create the obj directory if needed
 
-all: tmp $(TARGET) $(LCD_TEST)
+all: tmp $(TARGET)
 
 $(TARGET): $(OBJ)
 	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 	cp $(TARGET) $(HOME)/cmpt433/public/myApps/
 	mv $(TARGET) $(BDIR)/
-
-$(LCD_TEST): $(OBJ_LCD_TEST)
-	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
-	cp $(LCD_TEST) $(HOME)/cmpt433/public/myApps/
-	mv $(LCD_TEST) $(BDIR)/
 
 $(ODIR)/%.o: $(SDIR)/%.cpp
 	$(CXX) -o $@ -c $< $(CFLAGS)
