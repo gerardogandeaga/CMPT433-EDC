@@ -35,17 +35,17 @@ std::mutex Node::mtx;
 
 Node::Node(const char* serverAddr, int serverPort) 
 {
+	nodeQuakeMagnitude = MIN_MAGNITUDE;
+	nodeVibrationPulse = MIN_MAGNITUDE;
+	host = serverAddr;
+	port = serverPort;
+	
 	// init the modules ===============
 	Accelerometer::GetInstance();
 	VibrationSensor::GetInstance();
 	SegDisplay::GetInstance();
 	Network::GetInstance(host, port);
 	// ================================
-
-	nodeQuakeMagnitude = MIN_MAGNITUDE;
-	nodeVibrationPulse = MIN_MAGNITUDE;
-	host = serverAddr;
-	port = serverPort;
 
 	// launch the worker thread
 	stopWorker = false;

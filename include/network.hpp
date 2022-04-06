@@ -38,6 +38,7 @@ private:
 
     std::thread getThread;
     std::thread putThread;
+    std::thread faultCheckThread;
 
     std::vector<int> severities;
 
@@ -46,6 +47,7 @@ private:
     void getRequests(void);
     void putRequests(void);
     void deregister(void);
+    void faultCheck(void);
 
     Network(const char* serverAddr, int serverPort);
     ~Network();
