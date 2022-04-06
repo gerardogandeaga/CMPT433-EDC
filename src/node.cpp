@@ -47,8 +47,6 @@ Node::Node()
 	nodeQuakeMagnitude = MIN_MAGNITUDE;
 	consensusQuakeMagnitude = MIN_MAGNITUDE;
 	nodeVibrationPulse = MIN_MAGNITUDE;
-	auto *lcd = LCDScreen::GetInstance();
-	lcd->setStatus(isNodeMaster, numberOfConnectedNodes, nodeQuakeMagnitude, consensusQuakeMagnitude);
 
 	// launch the worker thread
 	stopWorker = false;
