@@ -48,6 +48,7 @@ private:
     void putRequests(void);
     void deregister(void);
     void faultCheck(void);
+    int sendRequest(char (&message)[512], char (&response)[512]);
 
     Network(const char* serverAddr, int serverPort);
     ~Network();
