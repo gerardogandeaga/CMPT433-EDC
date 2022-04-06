@@ -1,7 +1,6 @@
 #ifndef LCD_SCREEN_H
 #define LCD_SCREEN_H
 
-#include <atomic>
 #include <map>
 #include <mutex>
 #include <string>
@@ -12,7 +11,7 @@
  * Beaglebone Green.
  * https://www.adafruit.com/product/181
  *
- * Author: Kenneth So, Vladimir Mishel
+ * Authors: Kenneth So, Vladimir Mishel
  *
  * The following is a list of Beaglebone pins that were used to connect
  * to each data line of the LCD screen.
@@ -65,13 +64,13 @@ private:
     // Outputs initialization message on the LCD screen.
     void playInitMessage();
 
-    // Set modes for either entering commands, or writing to the LCD screen.
+    // Sets modes for either entering commands, or writing to the LCD screen.
     void setCommandMode();
     void setWriteMode();
 
     void setUpPinToGPIOMapping();
 
-    // Set a pin to HIGH or LOW.
+    // Sets a pin to HIGH or LOW.
     void pinWrite(PinSymbol pin, gpio_utilities::PinValue value);
 
     // Writes a single character to the LCD.
@@ -84,7 +83,7 @@ private:
     // Tells the LCD board to read the databus by flashing the 'E' pin from high to low.
     void pulseEnable();
 
-    // Clear the LCD display.
+    // Clears the LCD display.
     void clearDisplay();
 
     // Display ON/OFF control.
