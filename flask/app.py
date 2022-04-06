@@ -1,6 +1,8 @@
 from flask import Flask
 from flask_restful import Resource, Api, reqparse
+from waitress import serve
 import sqlite3
+import sys
 
 connection = sqlite3.connect('nodedb.db')
 with open('nodeschema.sql') as f:
@@ -23,10 +25,11 @@ class Register(Resource):
     def get(self):
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute('INSERT INTO nodes (severity) VALUES (0)')
+        cur.execute('INSERT INTO nodes (severity) VALUES (0);')
         node_id = cur.lastrowid
         conn.commit()
         cur.close()
+        print('Registered node with id: ' + str(node_id), file=sys.stderr)
         return node_id
 
     def delete(self):
@@ -39,6 +42,7 @@ class Register(Resource):
         cur.execute('DELETE FROM nodes WHERE id = ?', (args['id']))
         conn.commit()
         cur.close()
+        print('Deleted node with id: ' + args['id'], file=sys.stderr)
         return 200
 
 
@@ -53,6 +57,7 @@ class Nodes(Resource):
         for row in rows:
             severities += str(row[0])
             severities += ','
+        print('Received request for node severities', file=sys.stderr)
         return severities
 
     def put(self):
@@ -63,7 +68,18 @@ class Nodes(Resource):
 
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute('UPDATE nodes SET severity = ? WHERE id = ?', (args['severity'], args['id']))
+        cur.execute("UPDATE nodes SET severity = ?, lastUpdate = datetime('now') WHERE id = ?;", (args['severity'], args['id']))
+        conn.commit()
+        cur.close()
+        print('node with id ' + args['id'] + ' reported severity of ' + args['severity'], file=sys.stderr)
+        return 200
+
+
+class FaultCheck(Resource):
+    def put(self):
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM nodes WHERE lastUpdate < datetime('now', '-10 second');")
         conn.commit()
         cur.close()
         return 200
@@ -71,6 +87,7 @@ class Nodes(Resource):
 
 api.add_resource(Register, '/register')
 api.add_resource(Nodes, '/nodes')
+api.add_resource(FaultCheck, '/faultcheck')
 
 if __name__ == '__main__':
-    app.run(port=8080)
+    serve(app, host='0.0.0.0', port=8080)
