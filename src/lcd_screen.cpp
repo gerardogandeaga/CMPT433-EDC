@@ -109,11 +109,6 @@ LCDScreen::LCDScreen()
 	PlayInitMessage();
 
 	ClearDisplay();
-
-	// stop_worker = false;
-	// worker_thread = std::thread(&LCDScreen::Worker, this);
-	// top_message_rotating = false;
-	// top_message_index = 0;
 }
 
 void LCDScreen::PlayInitMessage()
@@ -132,7 +127,7 @@ void LCDScreen::PlayInitMessage()
 		// Output string.
 		WriteMessage(output_str);
 
-		// Sleep for 200 ms.	
+		// Sleep for 200 ms.
 		std::this_thread::sleep_for(std::chrono::milliseconds(300));
 	}
 }
@@ -141,9 +136,6 @@ LCDScreen::~LCDScreen()
 {
 	// Turn display off.
 	DisplayOff();
-
-	// stop_worker = true;
-	// worker_thread.join();
 }
 
 void LCDScreen::SetStatus(std::string severity, bool isMaster)
@@ -152,7 +144,7 @@ void LCDScreen::SetStatus(std::string severity, bool isMaster)
 	SetCursorPosition(0, 0);
 	WriteMessage(severity);
 
-	// Show if master node.
+	// Show if master node in the top left.
 	SetCursorPosition(0, 13);
 	if (isMaster) {
 		WriteMessage("[M]");
@@ -222,85 +214,6 @@ void LCDScreen::SetCursorPosition(int row, int column)
 	SetWriteMode();
 }
 
-void LCDScreen::Worker()
-{
-	while (!stop_worker) {
-		// First, clear the screen.
-		ClearDisplay();
-
-		// // Output the top message.
-		// OutputTopMessage();
-
-		// // Output the bottom message.
-		// OutputBottomMessage();
-
-		// Sleep for 200 ms.	
-		std::this_thread::sleep_for(std::chrono::milliseconds(200));
-	}
-}
-
-/*
-void LCDScreen::SetTopMessage(std::string message)
-{
-	// Lock messages for concurrency.
-	std::lock_guard<std::mutex> lock(lcd_mutex);
-	top_message = std::string(message);
-
-	// Check if we have a long message.
-	if (top_message.length() > 16) {
-		// Add whitespace for clarity when displaying the message.
-		top_message += "    ";
-		top_message_rotating = true;
-		top_message_index = 0;
-	}
-	else {
-		top_message_rotating = false;
-	}
-}
-
-void LCDScreen::OutputTopMessage() {
-	// Set cursor position to the start of the top line.
-	SetCursorPosition(0, 0);
-
-	// Lock messages for concurrency.
-	std::lock_guard<std::mutex> lock(lcd_mutex);
-
-	std::string output_str = top_message;
-	if (top_message_rotating) {
-		// Compute the string we want to output.
-		int str_start = top_message_index;
-		int str_length = top_message.length() - str_start;
-		str_length = str_length > 16 ? 16 : str_length;
-		output_str = top_message.substr(str_start, str_length) + top_message.substr(0, 16 - str_length);
-	}
-	
-	// Output string.
-	for (char ch : output_str) {
-		WriteChar(ch);
-	}
-
-	top_message_index = (top_message_index + 1) % top_message.length();
-}
-
-void LCDScreen::SetBottomMessage(std::string message)
-{
-	// Lock messages for concurrency.
-	std::lock_guard<std::mutex> lock(lcd_mutex);
-	bottom_message = std::string(message);
-}
-
-void LCDScreen::OutputBottomMessage()
-{
-	// Set cursor position to the start of the bottom line.
-	SetCursorPosition(1, 0);
-
-	// Lock messages for concurrency.
-	std::lock_guard<std::mutex> lock(lcd_mutex);
-	for (char ch : bottom_message) {
-		WriteChar(ch);
-	}
-}
-*/
 void LCDScreen::SetCommandMode()
 {
 	// Set RS pin to LOW.

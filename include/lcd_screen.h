@@ -70,11 +70,6 @@ private:
 
     void PlayInitMessage();
 
-    void Worker();
-
-    void OutputTopMessage();
-    void OutputBottomMessage();
-
     // Set modes for either entering commands, or writing to the LCD screen.
     void SetCommandMode();
     void SetWriteMode();
