@@ -191,7 +191,7 @@ void LCDScreen::setStatus(bool is_master,
 
 		// On the first line, output the severity.
 		setCursorPosition(0, 0);
-		switch (node_magnitude) {
+		switch (consensus_magnitude) {
 			case 2:
 				writeMessage("Weak");
 				break;
