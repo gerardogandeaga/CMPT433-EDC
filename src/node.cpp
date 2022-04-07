@@ -92,7 +92,7 @@ void Node::worker()
 		computeNodeQuakeMagnitude(prevSample, currSample, vibsInst->getPulse());
 		consensusMagnitude = netInst->getConsensusQuakeMagnitude();
 		numNodes = netInst->getNumNodes();
-		lcdInst->setStatus(isNodeMaster, numNodes, nodeQuakeMagnitude, consensusMagnitude);
+		lcdInst->setStatus(numNodes, nodeQuakeMagnitude, consensusMagnitude);
 
 		prevSample = currSample;
 

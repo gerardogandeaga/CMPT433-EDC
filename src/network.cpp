@@ -39,8 +39,8 @@ void Network::DestroyInstance() {
 
 int Network::registerNode() {
     const char *message_fmt = "GET /register HTTP/1.0\r\n\r\n";
-    char message[MSG_LENGTH], response[MSG_LENGTH];
-    strncpy(message, message_fmt, MSG_LENGTH-1);
+    char message[512], response[512];
+    strncpy(message, message_fmt, 512-1);
     sendRequest(message, response);
     char *token = NULL;
     token = strtok(response, "\n");
@@ -74,8 +74,8 @@ void Network::parseResponse(char* response) {
 
 void Network::getRequests() {
     char const *message_fmt = "GET /nodes HTTP/1.0\r\n\r\n";
-    char message[MSG_LENGTH], response[MSG_LENGTH];
-    strncpy(message, message_fmt, MSG_LENGTH-1);
+    char message[512], response[512];
+    strncpy(message, message_fmt, 512-1);
     
     while (running) {
         sendRequest(message, response);
@@ -86,7 +86,7 @@ void Network::getRequests() {
 
 void Network::putRequests() {
     char const *message_fmt = "PUT /nodes?id=%d&severity=%d HTTP/1.0\r\n\r\n";
-    char message[MSG_LENGTH], response[MSG_LENGTH];
+    char message[512], response[512];
     Node* node;
 
     while (running) {
@@ -105,8 +105,8 @@ void Network::putRequests() {
 
 void Network::faultCheck() {
     char const *message_fmt = "PUT /faultcheck HTTP/1.0\r\n\r\n";
-    char message[MSG_LENGTH], response[MSG_LENGTH];
-    strncpy(message, message_fmt, MSG_LENGTH-1);
+    char message[512], response[512];
+    strncpy(message, message_fmt, 512-1);
     while (running) {
         sendRequest(message, response);
         std::this_thread::sleep_for(std::chrono::milliseconds(10000));
@@ -115,7 +115,7 @@ void Network::faultCheck() {
 
 void Network::deregister() {
     char const *message_fmt = "DELETE /register?id=%d HTTP/1.0\r\n\r\n";
-    char message[MSG_LENGTH], response[MSG_LENGTH];
+    char message[512], response[512];
     sprintf(message, message_fmt, nodeId);
     sendRequest(message, response);
 }
