@@ -11,6 +11,7 @@
 #include "segDisplay.h"
 #include "network.hpp"
 #include "node.h"
+#include "lcdScreen.h"
 
 #define TAG "NODE: "
 #define SAMPLE_RATE 50000000
@@ -45,6 +46,7 @@ Node::Node(const char* serverAddr, int serverPort)
 	VibrationSensor::GetInstance();
 	SegDisplay::GetInstance();
 	Network::GetInstance(host, port);
+	LCDScreen::GetInstance();
 	// ================================
 
 	// launch the worker thread
@@ -63,6 +65,7 @@ Node::~Node()
 	VibrationSensor::DestroyInstance();
 	SegDisplay::DestroyInstance();
 	Network::DestroyInstance();
+	LCDScreen::DestroyInstance();
 	// ================================
 }
 
@@ -71,6 +74,7 @@ void Node::worker()
 	Accelerometer *accInst;
 	VibrationSensor *vibsInst;
 	Network *netInst;
+	LCDScreen *lcdInst;
 	// keep track of the previous sample to track the difference
 	Vector prevSample = Accelerometer::GetInstance()->getAcceleration();
 	while (!stopWorker) {
@@ -78,10 +82,13 @@ void Node::worker()
 		accInst = Accelerometer::GetInstance();
 		vibsInst = VibrationSensor::GetInstance();
 		netInst = Network::GetInstance(host, port);
+		lcdInst = LCDScreen::GetInstance();
+
 		// compute the change in acceleration
 		Vector currSample = accInst->getAcceleration();
 
 		computeNodeQuakeMagnitude(prevSample, currSample, vibsInst->getPulse());
+		lcdInst->setStatus(isNodeMaster, netInst->getNumNodes(), nodeQuakeMagnitude, netInst->getConsensusQuakeMagnitude());
 
 		prevSample = currSample;
 
