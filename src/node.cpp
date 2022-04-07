@@ -75,6 +75,8 @@ void Node::worker()
 	VibrationSensor *vibsInst;
 	Network *netInst;
 	LCDScreen *lcdInst;
+
+	int consensusMagnitude, numNodes;
 	// keep track of the previous sample to track the difference
 	Vector prevSample = Accelerometer::GetInstance()->getAcceleration();
 	while (!stopWorker) {
@@ -88,14 +90,16 @@ void Node::worker()
 		Vector currSample = accInst->getAcceleration();
 
 		computeNodeQuakeMagnitude(prevSample, currSample, vibsInst->getPulse());
-		lcdInst->setStatus(isNodeMaster, netInst->getNumNodes(), nodeQuakeMagnitude, netInst->getConsensusQuakeMagnitude());
+		consensusMagnitude = netInst->getConsensusQuakeMagnitude();
+		numNodes = netInst->getNumNodes();
+		lcdInst->setStatus(isNodeMaster, numNodes, nodeQuakeMagnitude, consensusMagnitude);
 
 		prevSample = currSample;
 
 		std::cout << TAG
 			<< "mag = " << nodeQuakeMagnitude 
-			<< ", consensus = " << netInst->getConsensusQuakeMagnitude() 
-			<< ", # connected nodes = " << netInst->getNumNodes()
+			<< ", consensus = " << consensusMagnitude
+			<< ", # connected nodes = " << numNodes
 			<< std::endl;
 
 		std::this_thread::sleep_for(std::chrono::nanoseconds(SAMPLE_RATE));
