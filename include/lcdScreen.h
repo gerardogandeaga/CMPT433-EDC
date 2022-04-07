@@ -6,6 +6,8 @@
 #include <string>
 #include "gpio_utilities.h"
 
+#define NUM_STATUS_PARAMETERS 3
+
 /*
  * Interface for the Adafruit Standard 16x2 LCD screen on the
  * Beaglebone Green.
@@ -40,10 +42,7 @@ public:
 	void operator=(LCDScreen const &) = delete;
 
     // Sets status of the calling node.
-    void setStatus(bool isMaster,
-                   int num_nodes,
-                   int node_magnitude,
-                   int consensus_magnitude);
+    void setStatus(int num_nodes, int node_magnitude, int consensus_magnitude);
 
     // Debugging.
     void writeMessage(std::string);
@@ -98,7 +97,7 @@ private:
     // LCD mutex.
     static std::mutex mtx;
     // LCD status array for data caching.
-    int status[4];
+    int status[NUM_STATUS_PARAMETERS];
 };
 
 #endif // LCD_SCREEN_H
