@@ -29,7 +29,7 @@ LCDScreen::LCDScreen()
 	std::cout << "Initializing LCD..." << std::endl;
 
 	setUpPinToGPIOMapping();
-	memset(status, 0, 4 * sizeof(*status));
+	memset(status, 0, NUM_STATUS_PARAMETERS * sizeof(*status));
 
 	// First, export the necessary GPIO pins.
 	for (const auto symbol_pin_pair : pin_map) {
@@ -105,7 +105,7 @@ LCDScreen::LCDScreen()
 	// To be able to see the cursor, use 0000 1110.
 	// To enable cursor blinking, use 0000 1111.
 	write4Bits(0x0); /* 0000 */
-	write4Bits(0xC); /* 1100 */
+	write4Bits(0xc); /* 1100 */
 	std::this_thread::sleep_for(std::chrono::microseconds(64));
 
 
@@ -175,15 +175,12 @@ void LCDScreen::playInitMessage()
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Show status of calling node.
  * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-void LCDScreen::setStatus(bool is_master,
-                          int num_nodes,
-						  int node_magnitude,
-						  int consensus_magnitude)
+void LCDScreen::setStatus(int num_nodes, int node_magnitude, int consensus_magnitude)
 {
-	int new_status[4] = {(int)is_master, num_nodes, node_magnitude, consensus_magnitude};
+	int new_status[NUM_STATUS_PARAMETERS] = {num_nodes, node_magnitude, consensus_magnitude};
 
 	// First, make sure the status has changed.
-	if (memcmp(status, new_status, 4 * sizeof(*status)) != 0) {
+	if (memcmp(status, new_status, NUM_STATUS_PARAMETERS * sizeof(*status)) != 0) {
 		std::lock_guard<std::mutex> lock(mtx);
 		
 		// Clear display before updating.
@@ -220,15 +217,6 @@ void LCDScreen::setStatus(bool is_master,
 				writeMessage("Not felt");
 		}
 
-		// Show if master node in the top left.
-		setCursorPosition(0, 13);
-		if (is_master) {
-			writeMessage("[M]");
-		}
-		else {
-			writeMessage("[*]");
-		}
-
 		// Show node and consensus magnitudes.
 		setCursorPosition(1, 0);
 		writeMessage(std::to_string(node_magnitude));
@@ -236,11 +224,12 @@ void LCDScreen::setStatus(bool is_master,
 		writeMessage(std::to_string(consensus_magnitude));
 
 		// Show number of connected nodes.
-		setCursorPosition(1, 13);
-		writeMessage("(" + std::to_string(num_nodes) + ")");
+		std::string output_str = "(" + std::to_string(num_nodes) + ")";
+		setCursorPosition(1, 15 - output_str.length());
+		writeMessage(output_str);
 
 		// Update status.
-		memcpy(status, new_status, 4 * sizeof(*status));
+		memcpy(status, new_status, NUM_STATUS_PARAMETERS * sizeof(*status));
 	}
 }
 
@@ -275,7 +264,7 @@ void LCDScreen::setUpPinToGPIOMapping()
 void LCDScreen::writeChar(char c)
 {
 	unsigned int upper_bits = (c >> 4);
-	unsigned int lower_bits = c & 0xF;
+	unsigned int lower_bits = c & 0xf;
 	write4Bits(upper_bits);
 	write4Bits(lower_bits);
 }
@@ -283,7 +272,7 @@ void LCDScreen::writeChar(char c)
 void LCDScreen::write4Bits(uint8_t value)
 {
 	for (int i = 0; i < NUM_DATABUS_PINS; ++i) {
-		gpio_utilities::PinValue pin_value = (value >> i) & 0x01 ?
+		gpio_utilities::PinValue pin_value = (value >> i) & 0x1 ?
 		                                     gpio_utilities::PinValue::HIGH :
 											 gpio_utilities::PinValue::LOW;
 		pinWrite((PinSymbol)i, pin_value);
@@ -362,9 +351,9 @@ void LCDScreen::setCursorPosition(int row, int column)
 		// Instruction corresponding to setting the location of the cursor
 		// is given by 1xxx xxxx in binary, where the bits denoted by x 
 		// tells us the location. Thus, 0x80 = 1000 0000 corresponds to the
-		// start of the first line, and 1100 0000 corresponds to the start
-		// of the second line.
-		uint8_t val = (row == 0) ? 0x80 : 0xC0;
+		// start of the first line, and 0xc0 = 1100 0000 corresponds to the
+		// start of the second line.
+		uint8_t val = (row == 0) ? 0x80 : 0xc0;
 		val += column;
 		write4Bits(val >> 4);
 		write4Bits(val & 0xf);

@@ -1,6 +1,5 @@
 # Makefile source: Chnossos's answer https://stackoverflow.com/questions/31609667/c-makefile-error-no-rule-to-make-target-cpp
 TARGET = edc-program
-LCD_TEST = lcd-test
 SDIR = ./src
 # include directory, this includes the header files
 IDIR = ./include

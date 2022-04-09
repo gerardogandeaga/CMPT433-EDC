@@ -8,17 +8,20 @@ Network *Network::instance = nullptr;
 Network::Network(const char* serverAddr, int serverPort) {
     signal(SIGPIPE, SIG_IGN);
     running = true;
+    consensusQuakeMagnitude = 0;
     host = serverAddr;
     port = serverPort;
     nodeId = registerNode();
     getThread = std::thread(&Network::getRequests, this);
     putThread = std::thread(&Network::putRequests, this);
+    faultCheckThread = std::thread(&Network::faultCheck, this);
 }
 
 Network::~Network() {
     running = false;
     getThread.join();
     putThread.join();
+    faultCheckThread.join();
     deregister();
 }
 
@@ -35,47 +38,10 @@ void Network::DestroyInstance() {
 }
 
 int Network::registerNode() {
-    const char *message = "GET /register HTTP/1.0\r\n\r\n";
-
-    struct sockaddr_in sin;
-    memset(&sin, 0, sizeof(sin));
-    sin.sin_family = AF_INET;
-    sin.sin_addr.s_addr = inet_addr(host);
-    sin.sin_port = htons(port);
-
-    int sd = socket(AF_INET, SOCK_STREAM, 0);
-    connect(sd,(struct sockaddr*) &sin, sizeof(sin));
-
-    int bytes, sent, received, total;
-    char response[1024];
-
-    total = strlen(message);
-    sent = 0;
-    do {
-        bytes = write(sd, message + sent, total - sent);
-        if (bytes < 0) {
-            printf("error writing register message to server: %s\n", strerror(errno));
-            exit(-1);
-        } else if (bytes == 0) {
-            break;
-        }
-        sent += bytes;
-    } while (sent < total);
-
-    memset(response, 0, sizeof(response));
-    total = sizeof(response) - 1;
-    received = 0;
-    do {
-        bytes = read(sd, response + received, total - received);
-        if (bytes < 0) {
-            printf("error reading registration response: %s\n", strerror(errno));
-            exit(-1);
-        } else if (bytes == 0) {
-            break;
-        }
-        received += bytes;
-    } while (received < total);
-    close(sd);
+    const char *message_fmt = "GET /register HTTP/1.0\r\n\r\n";
+    char message[512], response[512];
+    strncpy(message, message_fmt, 512-1);
+    sendRequest(message, response);
     char *token = NULL;
     token = strtok(response, "\n");
     for (int i = 0; i < 7; i++) {
@@ -87,7 +53,7 @@ int Network::registerNode() {
 void Network::parseResponse(char* response) {
     char *token = NULL;
     token = strtok(response, "\n");
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 7; i++) {
         token = strtok(NULL, "\n");
     }
     int size = strlen(token);
@@ -99,127 +65,76 @@ void Network::parseResponse(char* response) {
             severities.push_back(digit);
         }
     }
+    int sum = 0;
+    for (auto& n : severities) {
+        sum += n;
+    }
+    consensusQuakeMagnitude = round(sum / (double)severities.size());
 }
 
 void Network::getRequests() {
-    char const *message = "GET /nodes HTTP/1.0\r\n\r\n";
-
-    struct sockaddr_in sin;
-    memset(&sin, 0, sizeof(sin));
-    sin.sin_family = AF_INET;
-    sin.sin_addr.s_addr = inet_addr(host);
-    sin.sin_port = htons(port);
-
-    int bytes, sent, received, total;
-    char response[1024];
-
+    char const *message_fmt = "GET /nodes HTTP/1.0\r\n\r\n";
+    char message[512], response[512];
+    strncpy(message, message_fmt, 512-1);
+    
     while (running) {
-        int sd = socket(AF_INET, SOCK_STREAM, 0);
-        connect(sd, (struct sockaddr*) &sin, sizeof(sin));
-        total = strlen(message);
-        sent = 0;
-        do {
-            bytes = write(sd, message + sent, total - sent);
-            if (bytes < 0) {
-                printf("error writing get to socket: %s\n", strerror(errno));
-                exit(-1);
-            } else if (bytes == 0) {
-                break;
-            }
-            sent += bytes;
-        } while (sent < total);
-
-        memset(response, 0, sizeof(response));
-        total = sizeof(response) - 1;
-        received = 0;
-        do {
-            bytes = read(sd, response + received, total - received);
-            if (bytes < 0) {
-                printf("error reading response to get from socket: %s\n", strerror(errno));
-                exit(-1);
-            } else if (bytes == 0) {
-                break;
-            }
-            received += bytes;
-        } while (received < total);
+        sendRequest(message, response);
         parseResponse(response);
-        close(sd);
-        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     }
 }
 
 void Network::putRequests() {
     char const *message_fmt = "PUT /nodes?id=%d&severity=%d HTTP/1.0\r\n\r\n";
-
-    struct sockaddr_in sin;
-    memset(&sin, 0, sizeof(sin));
-    sin.sin_family = AF_INET;
-    sin.sin_addr.s_addr = inet_addr(host);
-    sin.sin_port = htons(port);
-
-    int bytes, sent, received, total;
+    char message[512], response[512];
+    Node* node;
 
     while (running) {
-        char message[256], response[128];
-        int severity = 2;
+        node = Node::GetInstanceIfExits();
+        if (node == nullptr) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            continue;
+        }
+        int severity = node->getNodeQuakeMagnitude();
         sprintf(message, message_fmt, nodeId, severity);
-        int sd = socket(AF_INET, SOCK_STREAM, 0);
-        connect(sd, (struct sockaddr*) &sin, sizeof(sin));
-        total = strlen(message);
-        sent = 0;
-        do {
-            bytes = write(sd, message + sent, total - sent);
-            if (bytes < 0) {
-                printf("error writing put to socket: %s\n", strerror(errno));
-                exit(-1);
-            } else if (bytes == 0) {
-                break;
-            }
-            sent += bytes;
-        } while (sent < total);
-
-        memset(response, 0, sizeof(response));
-        total = sizeof(response) - 1;
-        received = 0;
-        do {
-            bytes = read(sd, response + received, total - received);
-            if (bytes < 0) {
-                printf("error reading response to put from socket: %s\n", strerror(errno));
-                exit(-1);
-            } else if (bytes == 0) {
-                break;
-            }
-            received += bytes;
-        } while (received < total);
-
-        close(sd);
+        sendRequest(message, response);
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
     
 }
 
+void Network::faultCheck() {
+    char const *message_fmt = "PUT /faultcheck HTTP/1.0\r\n\r\n";
+    char message[512], response[512];
+    strncpy(message, message_fmt, 512-1);
+    while (running) {
+        sendRequest(message, response);
+        std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+    }
+}
+
 void Network::deregister() {
     char const *message_fmt = "DELETE /register?id=%d HTTP/1.0\r\n\r\n";
+    char message[512], response[512];
+    sprintf(message, message_fmt, nodeId);
+    sendRequest(message, response);
+}
 
+int Network::sendRequest(char (&message)[512], char (&response)[512]) {
     struct sockaddr_in sin;
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;
     sin.sin_addr.s_addr = inet_addr(host);
     sin.sin_port = htons(port);
-
     int sd = socket(AF_INET, SOCK_STREAM, 0);
     connect(sd,(struct sockaddr*) &sin, sizeof(sin));
-
     int bytes, sent, received, total;
-    char message[64], response[64];
-    sprintf(message, message_fmt, nodeId);
-
     total = strlen(message);
     sent = 0;
     do {
         bytes = write(sd, message + sent, total - sent);
         if (bytes < 0) {
-            printf("error writing delete to socket: %s\n", strerror(errno));
+            printf("error writing to socket: %s\n", strerror(errno));
             exit(-1);
         } else if (bytes == 0) {
             break;
@@ -233,7 +148,7 @@ void Network::deregister() {
     do {
         bytes = read(sd, response + received, total - received);
         if (bytes < 0) {
-            printf("error reading response to delete from socket: %s\n", strerror(errno));
+            printf("error reading response from socket: %s\n", strerror(errno));
             exit(-1);
         } else if (bytes == 0) {
             break;
@@ -242,4 +157,13 @@ void Network::deregister() {
     } while (received < total);
 
     close(sd);
+    return received;
+}
+
+int Network::getConsensusQuakeMagnitude() {
+    return consensusQuakeMagnitude;
+}
+
+int Network::getNumNodes() {
+    return severities.size();
 }
