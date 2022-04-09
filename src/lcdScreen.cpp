@@ -225,7 +225,7 @@ void LCDScreen::setStatus(int num_nodes, int node_magnitude, int consensus_magni
 
 		// Show number of connected nodes.
 		std::string output_str = "(" + std::to_string(num_nodes) + ")";
-		setCursorPosition(1, 15 - output_str.length());
+		setCursorPosition(1, 16 - output_str.length());
 		writeMessage(output_str);
 
 		// Update status.
