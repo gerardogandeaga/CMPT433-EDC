@@ -32,8 +32,6 @@ int main(int argc, char *argv[])
 
 	Node::End();
 
-	// lcd_test();
-
 	// Vector prev = accInst->getAcceleration();
 	// while (1) {
 	// 	Vector acc = accInst->getAcceleration();

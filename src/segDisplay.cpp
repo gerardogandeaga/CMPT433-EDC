@@ -65,6 +65,9 @@ void SegDisplay::setup(void)
     gpio_utilities::ExportGPIOPin(SEG_DISP_GPIO_1);
     gpio_utilities::ExportGPIOPin(SEG_DISP_GPIO_2);
 
+	// Sleep for 600 ms after exporting pins.
+	std::this_thread::sleep_for(std::chrono::milliseconds(600));
+
     // set directions
     gpio_utilities::WriteToGPIODirectionFile(SEG_DISP_GPIO_1, gpio_utilities::OUT);
     gpio_utilities::WriteToGPIODirectionFile(SEG_DISP_GPIO_2, gpio_utilities::OUT);
